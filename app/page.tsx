@@ -150,6 +150,12 @@ const CATEGORIES: Category[] = [
   },
 ];
 
+const EMERGENCY_MESSAGES = [
+  "숨쉬기가 너무 힘들어요.",
+  "흡인이 필요해요.",
+  "보호자를 바로 불러주세요.",
+] as const;
+
 const INITIAL_GROUP_MAP = {
   "ㄱ": ["ㄱ", "ㅋ", "ㄴ", "ㄹ"],
   "ㅁ": ["ㅁ", "ㅂ", "ㅍ", "ㄷ"],
@@ -169,8 +175,8 @@ const VOWEL_GROUP_MAP = {
 type VowelGroup = keyof typeof VOWEL_GROUP_MAP;
 
 const FINAL_GROUP_MAP = {
-  "ㄴ": ["ㄴ", "ㄹ", "ㅁ", "ㄱ", "ㄵ", "ㄶ", "ㄺ", "ㄻ"],
-  "ㅂ": ["ㅂ", "ㅅ", "ㅇ", "ㄷ", "ㅄ", "ㄼ", "ㄽ", "ㄾ"],
+  "ㄴ": ["ㄴ", "ㄹ", "ㅁ", "ㄱ", "ㄲ", "ㄵ", "ㄶ", "ㄺ", "ㄻ"],
+  "ㅂ": ["ㅂ", "ㅅ", "ㅆ", "ㅇ", "ㄷ", "ㅄ", "ㄼ", "ㄽ", "ㄾ"],
   "ㅈ": ["ㅈ", "ㅍ", "ㅊ", "ㄳ", "ㄿ", "ㅀ"],
   "ㅋ": ["ㅋ", "ㅌ", "ㅎ"],
 } as const;
@@ -406,17 +412,27 @@ function RadialPad({
   activeDirection,
   isResting,
   isBlinkPressed,
+  centerText,
   onCenter,
   onCenterLong,
-  centerHelper = "방향 없이 Space",
+  centerTitle = "WORK / REST ZONE",
+  centerHelper = "Space를 1.5초 이상 길게 눌러 휴식 전환",
+  isSpeaking = false,
+  speakingDurationMs = 2600,
+  speechAnimationKey = 0,
 }: {
   items: RadialItem[];
   activeDirection: Direction | null;
   isResting: boolean;
   isBlinkPressed: boolean;
+  centerText: string;
   onCenter: () => void;
   onCenterLong?: () => void;
+  centerTitle?: string;
   centerHelper?: string;
+  isSpeaking?: boolean;
+  speakingDurationMs?: number;
+  speechAnimationKey?: number;
 }) {
   const pointerStartRef = useRef<Partial<Record<Direction, number>>>({});
   const centerPointerStartRef = useRef<number | null>(null);
@@ -447,7 +463,7 @@ function RadialPad({
 
     const duration = Date.now() - startedAt;
 
-    if (duration >= 800 && item.longAction) {
+    if (duration >= 1500 && item.longAction) {
       item.longAction();
     } else {
       item.action();
@@ -460,9 +476,11 @@ function RadialPad({
   };
 
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,2.4fr)_minmax(0,0.8fr)] items-center gap-3">
       {SLOT_ORDER.map((slot) => {
         if (slot === "center") {
+          const centerIsPressed = !activeDirection && isBlinkPressed;
+
           return (
             <button
               key="center"
@@ -482,7 +500,7 @@ function RadialPad({
 
                 const duration = Date.now() - startedAt;
 
-                if (duration >= 800 && onCenterLong) {
+                if (duration >= 1500 && onCenterLong) {
                   onCenterLong();
                 } else {
                   onCenter();
@@ -492,21 +510,61 @@ function RadialPad({
                 centerPointerStartRef.current = null;
               }}
               className={
-                "flex min-h-36 flex-col items-center justify-center rounded-3xl border-2 p-4 text-center transition " +
+                "relative flex min-h-64 select-none flex-col items-center justify-center overflow-hidden rounded-3xl border-2 px-7 py-9 text-center transition " +
                 (isResting
                   ? "border-emerald-500 bg-emerald-600 text-white"
-                  : !activeDirection && isBlinkPressed
-                    ? "scale-105 border-blue-500 bg-slate-800 text-white shadow-lg"
-                    : "border-slate-700 bg-slate-900 text-white")
+                  : centerIsPressed
+                    ? "scale-[1.03] border-blue-600 bg-slate-800 text-white shadow-xl"
+                    : isSpeaking
+                      ? "border-blue-500 bg-blue-100 text-slate-950"
+                      : "border-slate-700 bg-slate-900 text-white")
               }
             >
-              <span className="text-4xl">{isResting ? "▶" : "◉"}</span>
-              <span className="mt-2 text-lg font-bold">
-                {isResting ? "휴식 해제" : "휴식 Zone"}
-              </span>
-              <span className="mt-1 text-xs text-slate-300">
-                {centerHelper}
-              </span>
+              {isSpeaking && !isResting && (
+                <div
+                  key={speechAnimationKey}
+                  className="pointer-events-none absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-blue-400/60 to-transparent"
+                  style={{
+                    animation: `optitalkSpeechSweep ${speakingDurationMs}ms linear forwards`,
+                  }}
+                />
+              )}
+
+              <div className="relative z-10 flex w-full flex-col items-center">
+                <span
+                  className={
+                    "rounded-full px-3 py-1 text-xs font-bold tracking-wide " +
+                    (isResting
+                      ? "bg-white/20 text-white"
+                      : isSpeaking
+                        ? "bg-blue-600 text-white"
+                        : "bg-white/10 text-slate-200")
+                  }
+                >
+                  {isResting ? "REST MODE" : isSpeaking ? "SPEAKING" : centerTitle}
+                </span>
+
+                <p className="mt-5 max-w-full break-words text-2xl font-bold leading-relaxed md:text-3xl">
+                  {isResting ? "휴식 중입니다." : centerText}
+                </p>
+
+                <span
+                  className={
+                    "mt-4 text-xs font-semibold " +
+                    (isResting
+                      ? "text-emerald-100"
+                      : isSpeaking
+                        ? "text-blue-800"
+                        : "text-slate-300")
+                  }
+                >
+                  {isResting
+                    ? "Space를 1.5초 이상 길게 눌러 휴식 해제 · 클릭 가능"
+                    : isSpeaking
+                      ? "음성 출력이 끝나면 Work Zone이 초기화됩니다."
+                      : centerHelper + " · 클릭 가능"}
+                </span>
+              </div>
             </button>
           );
         }
@@ -517,7 +575,7 @@ function RadialPad({
           return (
             <div
               key={slot}
-              className="min-h-36 rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50"
+              className="min-h-24 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50"
             />
           );
         }
@@ -547,7 +605,7 @@ function RadialPad({
             }
             onPointerCancel={() => cancelPointerPress(item.direction)}
             className={
-              "flex min-h-36 select-none flex-col items-center justify-center rounded-3xl border-2 p-4 text-center transition disabled:cursor-not-allowed disabled:opacity-30 " +
+              "flex min-h-24 select-none flex-col items-center justify-center rounded-2xl border-2 p-2.5 text-center transition disabled:cursor-not-allowed disabled:opacity-30 " +
               (isActive && !isResting
                 ? isConfirming || isPointerActive
                   ? "scale-110 border-blue-700 bg-blue-700 text-white shadow-xl"
@@ -555,12 +613,12 @@ function RadialPad({
                 : normalClass)
             }
           >
-            <span className="text-2xl font-bold">{item.label}</span>
+            <span className="text-base font-bold md:text-lg">{item.label}</span>
 
             {item.helper && (
               <span
                 className={
-                  "mt-2 text-xs " +
+                  "mt-1.5 text-[11px] md:text-xs " +
                   (isActive
                     ? "text-blue-100"
                     : item.tone === "primary"
@@ -574,7 +632,7 @@ function RadialPad({
 
             <span
               className={
-                "mt-3 rounded-full px-2 py-1 text-[11px] font-semibold " +
+                "mt-2 rounded-full px-2 py-1 text-[10px] font-semibold " +
                 (isActive
                   ? "bg-white/20 text-white"
                   : item.tone === "primary"
@@ -933,6 +991,36 @@ export default function Home() {
 
     addInitialToDirect(selected);
     setSelectedDirectInitialGroup(null);
+
+    // 초성을 선택하면 다음 입력은 반드시 중성이므로
+    // 모음 그룹 선택 화면으로 자동 이동합니다.
+    setDirectStage("vowel-groups");
+  };
+
+  const commitSyllableAndReturnToStart = () => {
+    const current = composeSyllable(syllable);
+
+    if (current) {
+      setDirectText((previous) => previous + current);
+    }
+
+    setSyllable(EMPTY_SYLLABLE);
+    setSelectedSentence("");
+    setSelectedDirectInitialGroup(null);
+    setDirectStage("root");
+  };
+
+  const commitFinalAndReturnToStart = (letter: string) => {
+    const completedSyllable = composeSyllable({
+      ...syllable,
+      final: letter,
+    });
+
+    setDirectText((previous) => previous + completedSyllable);
+    setSyllable(EMPTY_SYLLABLE);
+    setSelectedSentence("");
+    setSelectedFinalGroup(null);
+    setFinalPage(0);
     setDirectStage("root");
   };
 
@@ -977,6 +1065,27 @@ export default function Home() {
         helper: "초성 입력부터 시작",
         action: openFreeInput,
         tone: "primary",
+      },
+      {
+        direction: "sw",
+        label: EMERGENCY_MESSAGES[0],
+        helper: "긴급 문장 즉시 출력",
+        action: () => speak(EMERGENCY_MESSAGES[0]),
+        tone: "danger",
+      },
+      {
+        direction: "s",
+        label: EMERGENCY_MESSAGES[1],
+        helper: "긴급 문장 즉시 출력",
+        action: () => speak(EMERGENCY_MESSAGES[1]),
+        tone: "danger",
+      },
+      {
+        direction: "se",
+        label: EMERGENCY_MESSAGES[2],
+        helper: "긴급 문장 즉시 출력",
+        action: () => speak(EMERGENCY_MESSAGES[2]),
+        tone: "danger",
       },
     ];
   }
@@ -1213,65 +1322,144 @@ export default function Home() {
 
   if (screen === "free-input" && inputMode === "direct") {
     if (directStage === "root") {
-      radialItems = [
-        {
-          direction: "nw",
-          label: "초성 자음",
-          helper: "ㄱ · ㅁ · ㅅ · ㅇ",
-          action: () => setDirectStage("initial-groups"),
-        },
-        {
-          direction: "n",
-          label: "중성 모음",
-          helper: "ㅡ · ㅣ · ㅛ · ㅕ",
-          action: () => setDirectStage("vowel-groups"),
-        },
-        {
-          direction: "ne",
-          label: "받침 자음",
-          helper: "ㄴ · ㅂ · ㅈ · ㅋ",
-          action: () => setDirectStage("final-groups"),
-        },
-        {
-          direction: "w",
-          label: "English",
-          helper: "ESCG 4개 그룹",
-          action: () => setDirectStage("english-groups"),
-        },
-        {
-          direction: "e",
-          label: "지우기",
-          helper: "마지막 자모 삭제",
-          action: deleteDirectCharacter,
-        },
-        {
-          direction: "sw",
-          label: "초성 모드",
-          helper: "빠른 문장 입력",
-          action: () => {
-            setInputMode("initial");
-            setInitialStage("groups");
-            setSelectedSentence("");
+      const hasInitial = Boolean(syllable.initial);
+      const hasVowel = Boolean(syllable.vowel);
+
+      if (!hasInitial) {
+        // 새 글자를 시작할 때는 초성 또는 English만 먼저 보여줍니다.
+        radialItems = [
+          {
+            direction: "n",
+            label: "초성 자음",
+            helper: "ㄱ · ㅁ · ㅅ · ㅇ",
+            action: () => setDirectStage("initial-groups"),
           },
-        },
-        {
-          direction: "s",
-          label: "띄어쓰기",
-          helper: "현재 글자 확정",
-          action: addSpace,
-        },
-        {
-          direction: "se",
-          label: "문장 추천",
-          helper: "입력 문장 확장",
-          action: () => {
-            commitCurrentSyllable();
-            setSelectedSentence("");
-            setDirectStage("suggestions");
+          {
+            direction: "ne",
+            label: "English",
+            helper: "ESCG 그룹 입력",
+            action: () => setDirectStage("english-groups"),
           },
-          tone: "primary",
-        },
-      ];
+          {
+            direction: "e",
+            label: "지우기",
+            helper: "마지막 글자 삭제",
+            action: deleteDirectCharacter,
+          },
+          {
+            direction: "sw",
+            label: "초성 모드",
+            helper: "빠른 문장 입력",
+            action: () => {
+              setInputMode("initial");
+              setInitialStage("groups");
+              setSelectedSentence("");
+            },
+          },
+          {
+            direction: "s",
+            label: "띄어쓰기",
+            helper: "공백 입력",
+            action: addSpace,
+          },
+          {
+            direction: "se",
+            label: "문장 추천",
+            helper: "입력 문장 확장",
+            action: () => {
+              commitCurrentSyllable();
+              setSelectedSentence("");
+              setDirectStage("suggestions");
+            },
+            tone: "primary",
+          },
+        ];
+      } else if (!hasVowel) {
+        // 초성이 입력된 상태에서는 중성 입력만 진행합니다.
+        radialItems = [
+          {
+            direction: "nw",
+            label: "중성 모음",
+            helper: "ㅡ · ㅣ · ㅛ · ㅕ",
+            action: () => setDirectStage("vowel-groups"),
+            tone: "primary",
+          },
+          {
+            direction: "e",
+            label: "지우기",
+            helper: "입력한 초성 삭제",
+            action: deleteDirectCharacter,
+          },
+          {
+            direction: "sw",
+            label: "초성 다시 선택",
+            helper: "초성 그룹으로",
+            action: () => setDirectStage("initial-groups"),
+          },
+          {
+            direction: "s",
+            label: "띄어쓰기",
+            helper: "현재 입력 확정",
+            action: addSpace,
+          },
+          {
+            direction: "se",
+            label: "문장 추천",
+            helper: "입력 문장 확장",
+            action: () => setDirectStage("suggestions"),
+          },
+        ];
+      } else {
+        // 초성과 중성이 완성되면 받침 선택 여부를 결정합니다.
+        radialItems = [
+          {
+            direction: "nw",
+            label: "받침 자음",
+            helper: "ㄴ · ㅂ · ㅈ · ㅋ",
+            action: () => setDirectStage("final-groups"),
+            tone: "primary",
+          },
+          {
+            direction: "n",
+            label: "다음 글자",
+            helper: "받침 없이 글자 확정",
+            action: commitSyllableAndReturnToStart,
+          },
+          {
+            direction: "e",
+            label: "지우기",
+            helper: "입력한 모음 삭제",
+            action: deleteDirectCharacter,
+          },
+          {
+            direction: "sw",
+            label: "초성 모드",
+            helper: "빠른 문장 입력",
+            action: () => {
+              setInputMode("initial");
+              setInitialStage("groups");
+              setSelectedSentence("");
+            },
+          },
+          {
+            direction: "s",
+            label: "띄어쓰기",
+            helper: "현재 글자 확정 후 공백",
+            action: addSpace,
+          },
+          {
+            direction: "se",
+            label: "문장 추천",
+            helper: "입력 문장 확장",
+            action: () => {
+              commitCurrentSyllable();
+              setSelectedSentence("");
+              setDirectStage("suggestions");
+            },
+            tone: "primary",
+          },
+        ];
+      }
     }
 
     if (directStage === "initial-groups") {
@@ -1520,10 +1708,9 @@ export default function Home() {
         label: letter,
         helper: letter.length > 1 ? "문맥 기반 복합 받침" : "받침 선택",
         action: () => {
-          addFinalToDirect(letter);
-          setSelectedFinalGroup(null);
-          setFinalPage(0);
-          setDirectStage("root");
+          // 받침까지 선택되면 현재 글자를 완성하고
+          // 다음 글자의 초성 또는 English 선택 화면으로 돌아갑니다.
+          commitFinalAndReturnToStart(letter);
         },
       }));
 
@@ -1803,12 +1990,42 @@ export default function Home() {
   });
 
   const blinkStartRef = useRef<number | null>(null);
+  const restHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const restHoldTriggeredRef = useRef(false);
   const directionSequenceRef = useRef<ArrowKey[]>([]);
   const blinkDirectionRef = useRef<Direction | null>(null);
+  const directionClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
+  const clearDirectionTimer = () => {
+    if (directionClearTimerRef.current !== null) {
+      clearTimeout(directionClearTimerRef.current);
+      directionClearTimerRef.current = null;
+    }
+  };
+
+  const clearRestHoldTimer = () => {
+    if (restHoldTimerRef.current !== null) {
+      clearTimeout(restHoldTimerRef.current);
+      restHoldTimerRef.current = null;
+    }
+  };
 
   const clearDirectionSequence = () => {
+    clearDirectionTimer();
     directionSequenceRef.current = [];
     setHeldArrowKeys([]);
+  };
+
+  const scheduleDirectionSequenceClear = () => {
+    clearDirectionTimer();
+
+    directionClearTimerRef.current = setTimeout(() => {
+      directionClearTimerRef.current = null;
+      directionSequenceRef.current = [];
+      setHeldArrowKeys([]);
+    }, 1500);
   };
 
   const appendDirectionKey = (key: ArrowKey) => {
@@ -1834,6 +2051,10 @@ export default function Home() {
 
     directionSequenceRef.current = next;
     setHeldArrowKeys(next);
+
+    // 마지막 방향키 입력 이후 1.5초 동안 새 입력이 없으면
+    // 저장된 방향과 버튼 강조를 자동으로 해제합니다.
+    scheduleDirectionSequenceClear();
   };
 
   useEffect(() => {
@@ -1855,13 +2076,38 @@ export default function Home() {
       if (event.code === "Space" && !event.repeat) {
         event.preventDefault();
         blinkStartRef.current = Date.now();
+        restHoldTriggeredRef.current = false;
+
+        // Space도 새로운 입력이므로 선택 중에는
+        // 1.5초 방향 초기화 타이머를 잠시 중단합니다.
+        clearDirectionTimer();
+        clearRestHoldTimer();
 
         // 방향키는 동시에 누르고 있을 필요가 없습니다.
         // 두 방향키가 순서대로 입력되어 대각선이 만들어졌다면,
         // 그 뒤 Space를 눌렀을 때 해당 모서리 버튼을 선택합니다.
-        blinkDirectionRef.current = getDirectionFromKeys(
-          directionSequenceRef.current
-        );
+        const direction = getDirectionFromKeys(directionSequenceRef.current);
+        blinkDirectionRef.current = direction;
+
+        // 방향 입력이 전혀 없는 정면 깜빡임에서만 1.5초 타이머를 시작합니다.
+        // 타이머가 실제로 끝나기 전에는 휴식 모드가 절대 바뀌지 않습니다.
+        if (!direction) {
+          restHoldTimerRef.current = setTimeout(() => {
+            restHoldTimerRef.current = null;
+            restHoldTriggeredRef.current = true;
+
+            const nextResting = !isRestingRef.current;
+            setIsResting(nextResting);
+
+            if (screenRef.current === "manual") {
+              setManualMessage(
+                nextResting
+                  ? "Space를 1.5초 이상 눌러 휴식 모드에 들어갔습니다."
+                  : "Space를 1.5초 이상 눌러 휴식 모드를 해제했습니다."
+              );
+            }
+          }, 1500);
+        }
 
         setIsBlinkPressed(true);
         return;
@@ -1913,10 +2159,11 @@ export default function Home() {
 
         const startedAt = blinkStartRef.current;
         const duration = startedAt === null ? 0 : Date.now() - startedAt;
-        const longBlink = duration >= 800;
+        const longBlink = duration >= 1500;
 
         blinkStartRef.current = null;
         setIsBlinkPressed(false);
+        clearRestHoldTimer();
 
         const direction = blinkDirectionRef.current;
         blinkDirectionRef.current = null;
@@ -1924,18 +2171,16 @@ export default function Home() {
         if (!direction) {
           clearDirectionSequence();
 
-          if (screenRef.current === "manual" && longBlink) {
-            goHome();
+          // 1.5초 타이머가 끝난 경우에만 이미 휴식 전환이 실행됩니다.
+          // 짧게 누르고 뗀 Space는 아무 기능도 실행하지 않습니다.
+          if (restHoldTriggeredRef.current) {
+            restHoldTriggeredRef.current = false;
             return;
           }
 
-          setIsResting((previous) => !previous);
-
           if (screenRef.current === "manual") {
             setManualMessage(
-              isRestingRef.current
-                ? "정면 깜빡임으로 휴식 모드를 해제했습니다."
-                : "정면 깜빡임으로 휴식 모드에 들어갔습니다."
+              "짧은 정면 깜빡임이 감지되었습니다. 휴식 전환은 Space를 1.5초 이상 길게 눌러주세요."
             );
           }
 
@@ -1965,6 +2210,8 @@ export default function Home() {
 
     const handleBlur = () => {
       clearDirectionSequence();
+      clearRestHoldTimer();
+      restHoldTriggeredRef.current = false;
       blinkDirectionRef.current = null;
       setIsBlinkPressed(false);
       blinkStartRef.current = null;
@@ -1978,6 +2225,8 @@ export default function Home() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("blur", handleBlur);
+      clearDirectionTimer();
+      clearRestHoldTimer();
     };
   }, []);
 
@@ -2002,6 +2251,7 @@ export default function Home() {
     const categoryActive = activeDirection === "w";
     const inputActive = activeDirection === "e";
     const manualActive = activeDirection === "n";
+    const emergencyDirections: Direction[] = ["sw", "s", "se"];
 
     return (
       <main className="min-h-screen bg-slate-100 p-4 text-slate-900 md:p-8">
@@ -2095,6 +2345,47 @@ export default function Home() {
             </button>
           </section>
 
+          <section className="mt-6 rounded-3xl border-2 border-red-200 bg-red-50 p-5">
+            <div className="mb-4">
+              <p className="text-sm font-semibold text-red-600">
+                EMERGENCY EXPRESSIONS
+              </p>
+              <h2 className="mt-1 text-xl font-bold text-red-900">
+                긴급 표현
+              </h2>
+              <p className="mt-1 text-sm text-red-700">
+                고정 문장을 즉시 음성으로 출력합니다. 좌하단·하단·우하단 방향으로도 선택할 수 있습니다.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              {EMERGENCY_MESSAGES.map((message, index) => {
+                const direction = emergencyDirections[index];
+                const isActive = activeDirection === direction;
+
+                return (
+                  <button
+                    key={message}
+                    type="button"
+                    disabled={isResting}
+                    onClick={() => speak(message)}
+                    className={
+                      "min-h-24 rounded-2xl border-2 px-4 py-4 text-left font-bold transition disabled:opacity-30 " +
+                      (isActive
+                        ? "scale-105 border-red-800 bg-red-800 text-white shadow-lg"
+                        : "border-red-500 bg-red-600 text-white hover:bg-red-700")
+                    }
+                  >
+                    <span className="block text-base md:text-lg">{message}</span>
+                    <span className="mt-2 block text-xs font-semibold text-red-100">
+                      {DIRECTION_KEY_LABEL[direction]} + Space
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
           <button
             type="button"
             onClick={() => setIsResting((previous) => !previous)}
@@ -2108,8 +2399,8 @@ export default function Home() {
             }
           >
             {isResting
-              ? "휴식 중 · 방향 없이 Space 또는 클릭하여 해제"
-              : "휴식 Zone · 방향 없이 Space"}
+              ? "휴식 중 · Space를 1.5초 이상 길게 누르거나 클릭하여 해제"
+              : "휴식 Zone · Space를 1.5초 이상 길게 누르거나 클릭"}
           </button>
         </div>
       </main>
@@ -2130,27 +2421,33 @@ export default function Home() {
 
           {statusBox}
 
-          <section className="mt-5 rounded-3xl border-2 border-blue-200 bg-blue-50 p-5 text-center">
-            <p className="text-sm font-semibold text-blue-600">연습 결과</p>
-            <p className="mt-2 text-xl font-bold text-blue-950">{manualMessage}</p>
-          </section>
-
           <section className="mt-5">
             <RadialPad
               items={radialItems}
               activeDirection={activeDirection}
               isResting={isResting}
               isBlinkPressed={isBlinkPressed}
+              centerText={manualMessage}
+              centerTitle="PRACTICE / REST ZONE"
+              centerHelper="정면에서 Space를 1.5초 이상 길게 눌러 휴식 전환"
               onCenter={() => {
-                setIsResting((previous) => !previous);
+                const nextResting = !isResting;
+                setIsResting(nextResting);
                 setManualMessage(
-                  isResting
-                    ? "정면 깜빡임으로 휴식 모드를 해제했습니다."
-                    : "정면 깜빡임으로 휴식 모드에 들어갔습니다."
+                  nextResting
+                    ? "가운데 Zone 클릭으로 휴식 모드에 들어갔습니다."
+                    : "가운데 Zone 클릭으로 휴식 모드를 해제했습니다."
                 );
               }}
-              onCenterLong={goHome}
-              centerHelper="짧게: 휴식 · 0.8초 이상: 홈"
+              onCenterLong={() => {
+                const nextResting = !isResting;
+                setIsResting(nextResting);
+                setManualMessage(
+                  nextResting
+                    ? "가운데 Zone을 길게 눌러 휴식 모드에 들어갔습니다."
+                    : "가운데 Zone을 길게 눌러 휴식 모드를 해제했습니다."
+                );
+              }}
             />
           </section>
 
@@ -2166,10 +2463,10 @@ export default function Home() {
 
             <div className="rounded-3xl bg-white p-5 shadow-sm">
               <p className="text-sm font-semibold text-blue-600">Long blink</p>
-              <p className="mt-2 text-2xl font-bold">Space 0.8초 이상</p>
+              <p className="mt-2 text-2xl font-bold">Space 1.5초 이상</p>
               <p className="mt-3 text-sm text-slate-500">
                 초성 입력에서 ㄱ·ㄷ·ㅂ·ㅅ·ㅈ을 각각 ㄲ·ㄸ·ㅃ·ㅆ·ㅉ으로
-                입력합니다. 사용설명서에서는 방향 없이 길게 누르면 홈으로 갑니다.
+                입력합니다. 가운데 Work/Rest Zone에서는 방향 없이 1.5초 이상 길게 누르면 휴식 모드가 켜지거나 꺼집니다.
               </p>
             </div>
 
@@ -2223,52 +2520,26 @@ export default function Home() {
 
         {statusBox}
 
-        <section
-          className={
-            "relative mb-5 mt-5 overflow-hidden rounded-3xl border-2 p-6 text-center transition " +
-            (isSpeaking
-              ? "border-blue-500 bg-blue-100"
-              : "border-blue-200 bg-blue-50")
-          }
-        >
-          {isSpeaking && (
-            <div
-              key={speechAnimationKey}
-              className="pointer-events-none absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-blue-400/60 to-transparent"
-              style={{
-                animation: `optitalkSpeechSweep ${speakingDurationMs}ms linear forwards`,
-              }}
-            />
-          )}
-
-          <div className="relative z-10">
-            <p className="text-sm font-semibold text-blue-600">
-              {isSpeaking ? "SPEAKING" : "WORK ZONE"}
-            </p>
-            <p className="mt-3 min-h-12 break-words text-2xl font-bold md:text-4xl">
-              {workZoneText}
-            </p>
-            {isSpeaking ? (
-              <p className="mt-3 text-sm font-semibold text-blue-800">
-                음성 출력 중입니다. 완료되면 입력창이 초기화됩니다.
-              </p>
-            ) : (
-              selectedSentence && (
-                <p className="mt-3 text-sm text-blue-700">
-                  Enter를 누르면 선택한 문장을 말합니다.
-                </p>
-              )
-            )}
-          </div>
+        <section className="mt-5">
+          <RadialPad
+            items={radialItems}
+            activeDirection={activeDirection}
+            isResting={isResting}
+            isBlinkPressed={isBlinkPressed}
+            centerText={workZoneText}
+            centerTitle="WORK / REST ZONE"
+            centerHelper={
+              selectedSentence
+                ? "Enter로 말하기 · Space를 1.5초 이상 길게 눌러 휴식 전환"
+                : "Space를 1.5초 이상 길게 눌러 휴식 전환"
+            }
+            isSpeaking={isSpeaking}
+            speakingDurationMs={speakingDurationMs}
+            speechAnimationKey={speechAnimationKey}
+            onCenter={() => setIsResting((previous) => !previous)}
+            onCenterLong={() => setIsResting((previous) => !previous)}
+          />
         </section>
-
-        <RadialPad
-          items={radialItems}
-          activeDirection={activeDirection}
-          isResting={isResting}
-          isBlinkPressed={isBlinkPressed}
-          onCenter={() => setIsResting((previous) => !previous)}
-        />
 
         <style jsx global>{`
           @keyframes optitalkSpeechSweep {
@@ -2290,7 +2561,7 @@ export default function Home() {
         `}</style>
 
         <footer className="mt-5 text-center text-sm text-slate-500">
-          클릭 가능 · 0.8초 이상 길게 누르면 Long blink · Enter는 Converge
+          외곽 버튼 클릭 가능 · 가운데 Zone 클릭 가능 · 정면 Long blink는 휴식 전환 · Enter는 Converge
         </footer>
       </div>
     </main>
