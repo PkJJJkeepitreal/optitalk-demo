@@ -208,29 +208,13 @@ const DOUBLE_CONSONANT_MAP: Record<string, string> = {
 };
 
 const INITIAL_SENTENCE_MAP: Record<string, string[]> = {
-  "ㅇ": [
-    "아파요.",
-    "어지러워요.",
-    "의사 선생님을 불러주세요.",
-    "오늘은 괜찮아요.",
-    "옆으로 눕고 싶어요.",
-    "엄마를 불러주세요.",
-  ],
-  "ㅇㄷ": [
-    "오늘 도와주세요.",
-    "어디 다녀오셨어요?",
-    "운동 다시 하고 싶어요.",
-    "약을 더 주세요.",
-    "의사에게 데려다주세요.",
-    "오늘도 감사합니다.",
-  ],
-  "ㅇㄷㄱ": [
-    "오늘 도와주셔서 감사해요.",
-    "오늘 다시 검사하나요?",
-    "오늘 도움을 구하고 싶어요.",
-    "오늘 대화해서 기뻐요.",
-    "오늘도 곁에 있어 주세요.",
-    "오늘 담당 간호사님을 불러주세요.",
+  "ㅁㅇㄴㅁㅁㅅㄱㅅㅇㅇ": [
+    "물이 너무 마시고 싶어요.",
+    "물을 너무 마시고 싶어요.",
+    "물을 너무 마시기 싫어요.",
+    "물이 너무 무섭고 싫어요.",
+    "말이 너무 무섭고 싫어요.",
+    "문이 너무 무섭고 싫어요.",
   ],
 };
 
@@ -475,185 +459,210 @@ function RadialPad({
     setPointerDirection(null);
   };
 
-  return (
-    <div className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,2.4fr)_minmax(0,0.8fr)] items-center gap-3">
-      {SLOT_ORDER.map((slot) => {
-        if (slot === "center") {
-          const centerIsPressed = !activeDirection && isBlinkPressed;
+  const renderDirectionalSlot = (
+    direction: Direction,
+    sizeClass: string
+  ) => {
+    const item = items.find((candidate) => candidate.direction === direction);
 
-          return (
-            <button
-              key="center"
-              type="button"
-              onPointerDown={(event: ReactPointerEvent<HTMLButtonElement>) => {
-                if (event.button !== 0) return;
-                event.currentTarget.setPointerCapture(event.pointerId);
-                centerPointerStartRef.current = Date.now();
-              }}
-              onPointerUp={(event: ReactPointerEvent<HTMLButtonElement>) => {
-                if (event.button !== 0) return;
+    if (!item) {
+      return (
+        <div
+          key={direction}
+          className={`${sizeClass} rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50`}
+        />
+      );
+    }
 
-                const startedAt = centerPointerStartRef.current;
-                centerPointerStartRef.current = null;
+    const isKeyboardActive = activeDirection === direction;
+    const isPointerActive = pointerDirection === direction;
+    const isActive = isKeyboardActive || isPointerActive;
+    const isConfirming = isKeyboardActive && isBlinkPressed;
 
-                if (startedAt === null) return;
+    const normalClass =
+      item.tone === "primary"
+        ? "border-blue-500 bg-blue-600 text-white"
+        : item.tone === "danger"
+          ? "border-red-300 bg-red-50 text-red-800"
+          : "border-slate-200 bg-white text-slate-900";
 
-                const duration = Date.now() - startedAt;
-
-                if (duration >= 1500 && onCenterLong) {
-                  onCenterLong();
-                } else {
-                  onCenter();
-                }
-              }}
-              onPointerCancel={() => {
-                centerPointerStartRef.current = null;
-              }}
-              className={
-                "relative flex min-h-64 select-none flex-col items-center justify-center overflow-hidden rounded-3xl border-2 px-7 py-9 text-center transition " +
-                (isResting
-                  ? "border-emerald-500 bg-emerald-600 text-white"
-                  : centerIsPressed
-                    ? "scale-[1.03] border-blue-600 bg-slate-800 text-white shadow-xl"
-                    : isSpeaking
-                      ? "border-blue-500 bg-blue-100 text-slate-950"
-                      : "border-slate-700 bg-slate-900 text-white")
-              }
-            >
-              {isSpeaking && !isResting && (
-                <div
-                  key={speechAnimationKey}
-                  className="pointer-events-none absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-blue-400/60 to-transparent"
-                  style={{
-                    animation: `optitalkSpeechSweep ${speakingDurationMs}ms linear forwards`,
-                  }}
-                />
-              )}
-
-              <div className="relative z-10 flex w-full flex-col items-center">
-                <span
-                  className={
-                    "rounded-full px-3 py-1 text-xs font-bold tracking-wide " +
-                    (isResting
-                      ? "bg-white/20 text-white"
-                      : isSpeaking
-                        ? "bg-blue-600 text-white"
-                        : "bg-white/10 text-slate-200")
-                  }
-                >
-                  {isResting ? "REST MODE" : isSpeaking ? "SPEAKING" : centerTitle}
-                </span>
-
-                <p className="mt-5 max-w-full break-words text-2xl font-bold leading-relaxed md:text-3xl">
-                  {isResting ? "휴식 중입니다." : centerText}
-                </p>
-
-                <span
-                  className={
-                    "mt-4 text-xs font-semibold " +
-                    (isResting
-                      ? "text-emerald-100"
-                      : isSpeaking
-                        ? "text-blue-800"
-                        : "text-slate-300")
-                  }
-                >
-                  {isResting
-                    ? "Space를 1.5초 이상 길게 눌러 휴식 해제 · 클릭 가능"
-                    : isSpeaking
-                      ? "음성 출력이 끝나면 Work Zone이 초기화됩니다."
-                      : centerHelper + " · 클릭 가능"}
-                </span>
-              </div>
-            </button>
-          );
+    return (
+      <button
+        key={direction}
+        type="button"
+        disabled={isResting}
+        onPointerDown={(event: ReactPointerEvent<HTMLButtonElement>) =>
+          handlePointerDown(event, item.direction)
         }
-
-        const item = items.find((candidate) => candidate.direction === slot);
-
-        if (!item) {
-          return (
-            <div
-              key={slot}
-              className="min-h-24 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50"
-            />
-          );
+        onPointerUp={(event: ReactPointerEvent<HTMLButtonElement>) =>
+          finishPointerPress(event, item)
         }
+        onPointerCancel={() => cancelPointerPress(item.direction)}
+        className={
+          `flex ${sizeClass} select-none flex-col items-center justify-center rounded-2xl border-2 p-2.5 text-center transition disabled:cursor-not-allowed disabled:opacity-30 ` +
+          (isActive && !isResting
+            ? isConfirming || isPointerActive
+              ? "scale-110 border-blue-700 bg-blue-700 text-white shadow-xl"
+              : "scale-105 border-blue-600 bg-blue-600 text-white shadow-lg"
+            : normalClass)
+        }
+      >
+        <span className="text-base font-bold md:text-lg">{item.label}</span>
 
-        const isKeyboardActive = activeDirection === slot;
-        const isPointerActive = pointerDirection === slot;
-        const isActive = isKeyboardActive || isPointerActive;
-        const isConfirming = isKeyboardActive && isBlinkPressed;
-
-        const normalClass =
-          item.tone === "primary"
-            ? "border-blue-500 bg-blue-600 text-white"
-            : item.tone === "danger"
-              ? "border-red-300 bg-red-50 text-red-800"
-              : "border-slate-200 bg-white text-slate-900";
-
-        return (
-          <button
-            key={slot}
-            type="button"
-            disabled={isResting}
-            onPointerDown={(event: ReactPointerEvent<HTMLButtonElement>) =>
-              handlePointerDown(event, item.direction)
-            }
-            onPointerUp={(event: ReactPointerEvent<HTMLButtonElement>) =>
-              finishPointerPress(event, item)
-            }
-            onPointerCancel={() => cancelPointerPress(item.direction)}
+        {item.helper && (
+          <span
             className={
-              "flex min-h-24 select-none flex-col items-center justify-center rounded-2xl border-2 p-2.5 text-center transition disabled:cursor-not-allowed disabled:opacity-30 " +
-              (isActive && !isResting
-                ? isConfirming || isPointerActive
-                  ? "scale-110 border-blue-700 bg-blue-700 text-white shadow-xl"
-                  : "scale-105 border-blue-600 bg-blue-600 text-white shadow-lg"
-                : normalClass)
+              "mt-1.5 text-[11px] md:text-xs " +
+              (isActive
+                ? "text-blue-100"
+                : item.tone === "primary"
+                  ? "text-blue-100"
+                  : "text-slate-500")
             }
           >
-            <span className="text-base font-bold md:text-lg">{item.label}</span>
+            {item.helper}
+          </span>
+        )}
 
-            {item.helper && (
-              <span
-                className={
-                  "mt-1.5 text-[11px] md:text-xs " +
-                  (isActive
-                    ? "text-blue-100"
-                    : item.tone === "primary"
-                      ? "text-blue-100"
-                      : "text-slate-500")
-                }
-              >
-                {item.helper}
-              </span>
-            )}
+        <span
+          className={
+            "mt-2 rounded-full px-2 py-1 text-[10px] font-semibold " +
+            (isActive
+              ? "bg-white/20 text-white"
+              : item.tone === "primary"
+                ? "bg-white/15 text-white"
+                : "bg-slate-100 text-slate-500")
+          }
+        >
+          {DIRECTION_KEY_LABEL[direction]}
+        </span>
+      </button>
+    );
+  };
+
+  const centerIsPressed = !activeDirection && isBlinkPressed;
+
+  return (
+    <div className="space-y-3">
+      {/* 상단 3개 칸은 동일한 너비 */}
+      <div className="grid grid-cols-3 gap-3">
+        {renderDirectionalSlot("nw", "min-h-24")}
+        {renderDirectionalSlot("n", "min-h-24")}
+        {renderDirectionalSlot("ne", "min-h-24")}
+      </div>
+
+      {/* 가운데는 Work Zone을 넓게, 좌우 버튼은 세로로 길게 */}
+      <div className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,2.4fr)_minmax(0,0.8fr)] items-stretch gap-3">
+        {renderDirectionalSlot("w", "min-h-[19rem]")}
+
+        <button
+          type="button"
+          onPointerDown={(event: ReactPointerEvent<HTMLButtonElement>) => {
+            if (event.button !== 0) return;
+            event.currentTarget.setPointerCapture(event.pointerId);
+            centerPointerStartRef.current = Date.now();
+          }}
+          onPointerUp={(event: ReactPointerEvent<HTMLButtonElement>) => {
+            if (event.button !== 0) return;
+
+            const startedAt = centerPointerStartRef.current;
+            centerPointerStartRef.current = null;
+
+            if (startedAt === null) return;
+
+            const duration = Date.now() - startedAt;
+
+            if (duration >= 1500 && onCenterLong) {
+              onCenterLong();
+            } else {
+              onCenter();
+            }
+          }}
+          onPointerCancel={() => {
+            centerPointerStartRef.current = null;
+          }}
+          className={
+            "relative flex min-h-[19rem] select-none flex-col items-center justify-center overflow-hidden rounded-3xl border-2 px-8 py-10 text-center transition " +
+            (isResting
+              ? "border-emerald-500 bg-emerald-600 text-white"
+              : centerIsPressed
+                ? "scale-[1.03] border-blue-600 bg-slate-800 text-white shadow-xl"
+                : isSpeaking
+                  ? "border-blue-500 bg-blue-100 text-slate-950"
+                  : "border-slate-700 bg-slate-900 text-white")
+          }
+        >
+          {isSpeaking && !isResting && (
+            <div
+              key={speechAnimationKey}
+              className="pointer-events-none absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-blue-400/60 to-transparent"
+              style={{
+                animation: `optitalkSpeechSweep ${speakingDurationMs}ms linear forwards`,
+              }}
+            />
+          )}
+
+          <div className="relative z-10 flex w-full flex-col items-center">
+            <span
+              className={
+                "rounded-full px-3 py-1 text-xs font-bold tracking-wide " +
+                (isResting
+                  ? "bg-white/20 text-white"
+                  : isSpeaking
+                    ? "bg-blue-600 text-white"
+                    : "bg-white/10 text-slate-200")
+              }
+            >
+              {isResting ? "REST MODE" : isSpeaking ? "SPEAKING" : centerTitle}
+            </span>
+
+            <p className="mt-5 max-w-full whitespace-pre-line break-words text-2xl font-bold leading-relaxed md:text-4xl">
+              {isResting ? "휴식 중입니다." : centerText}
+            </p>
 
             <span
               className={
-                "mt-2 rounded-full px-2 py-1 text-[10px] font-semibold " +
-                (isActive
-                  ? "bg-white/20 text-white"
-                  : item.tone === "primary"
-                    ? "bg-white/15 text-white"
-                    : "bg-slate-100 text-slate-500")
+                "mt-5 text-xs font-semibold md:text-sm " +
+                (isResting
+                  ? "text-emerald-100"
+                  : isSpeaking
+                    ? "text-blue-800"
+                    : "text-slate-300")
               }
             >
-              {DIRECTION_KEY_LABEL[slot]}
+              {isResting
+                ? "Space를 1.5초 이상 길게 눌러 휴식 해제 · 클릭 가능"
+                : isSpeaking
+                  ? "음성 출력이 끝나면 Work Zone이 초기화됩니다."
+                  : centerHelper + " · 클릭 가능"}
             </span>
-          </button>
-        );
-      })}
+          </div>
+        </button>
+
+        {renderDirectionalSlot("e", "min-h-[19rem]")}
+      </div>
+
+      {/* 하단 3개 칸도 동일한 너비 */}
+      <div className="grid grid-cols-3 gap-3">
+        {renderDirectionalSlot("sw", "min-h-24")}
+        {renderDirectionalSlot("s", "min-h-24")}
+        {renderDirectionalSlot("se", "min-h-24")}
+      </div>
     </div>
   );
 }
 
+
 export default function Home() {
   const [screen, setScreen] = useState<Screen>("home");
   const [inputMode, setInputMode] = useState<InputMode>("initial");
+  const [committedInputText, setCommittedInputText] = useState("");
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
   const [selectedSentence, setSelectedSentence] = useState("");
+  const [recommendedSentences, setRecommendedSentences] = useState<string[]>([]);
+  const [isRecommendationLoading, setIsRecommendationLoading] =
+    useState(false);
+  const [recommendationError, setRecommendationError] = useState("");
   const [isResting, setIsResting] = useState(false);
 
   const [initialStage, setInitialStage] = useState<InitialStage>("groups");
@@ -697,13 +706,16 @@ export default function Home() {
   );
 
   const directOutput = directText + composeSyllable(syllable);
+  const currentInputText =
+    committedInputText +
+    (inputMode === "initial" ? initialInput : directOutput);
 
-  const initialSuggestions = useMemo(() => {
-    const matched = INITIAL_SENTENCE_MAP[initialInput];
+  const initialFallbackSuggestions = useMemo(() => {
+    const matched = INITIAL_SENTENCE_MAP[currentInputText];
 
     if (matched) return matched;
 
-    if (!initialInput) {
+    if (!currentInputText) {
       return [
         "물을 주세요.",
         "자세를 바꿔주세요.",
@@ -715,17 +727,17 @@ export default function Home() {
     }
 
     return [
-      initialInput + "에 맞는 추천 문장 1",
-      initialInput + "에 맞는 추천 문장 2",
-      initialInput + "에 맞는 추천 문장 3",
-      initialInput + "에 맞는 추천 문장 4",
-      initialInput + "에 맞는 추천 문장 5",
-      initialInput + "에 맞는 추천 문장 6",
+      currentInputText + "에 맞는 추천 문장 1",
+      currentInputText + "에 맞는 추천 문장 2",
+      currentInputText + "에 맞는 추천 문장 3",
+      currentInputText + "에 맞는 추천 문장 4",
+      currentInputText + "에 맞는 추천 문장 5",
+      currentInputText + "에 맞는 추천 문장 6",
     ];
-  }, [initialInput]);
+  }, [currentInputText]);
 
-  const directSuggestions = useMemo(() => {
-    const text = directOutput.trim();
+  const directFallbackSuggestions = useMemo(() => {
+    const text = currentInputText.trim();
 
     if (!text) {
       return [
@@ -746,7 +758,12 @@ export default function Home() {
       "저는 " + text,
       text + " 감사합니다.",
     ];
-  }, [directOutput]);
+  }, [currentInputText]);
+
+  useEffect(() => {
+    setRecommendedSentences([]);
+    setRecommendationError("");
+  }, [currentInputText, inputMode]);
 
   const speak = (text: string) => {
     if (!text || typeof window === "undefined") return;
@@ -762,19 +779,27 @@ export default function Home() {
 
   const clearCurrentWorkZone = () => {
     setSelectedSentence("");
+    setRecommendedSentences([]);
+    setRecommendationError("");
+    setIsRecommendationLoading(false);
 
     if (screen === "category") {
       return;
     }
 
     if (screen === "free-input" && inputMode === "initial") {
+      setCommittedInputText("");
       setInitialInput("");
       setInitialStage("groups");
       setSelectedInitialGroup(null);
+      setDirectText("");
+      setSyllable(EMPTY_SYLLABLE);
       return;
     }
 
     if (screen === "free-input" && inputMode === "direct") {
+      setCommittedInputText("");
+      setInitialInput("");
       setDirectText("");
       setSyllable(EMPTY_SYLLABLE);
       setDirectStage("root");
@@ -857,7 +882,11 @@ export default function Home() {
   };
 
   const resetAllInput = () => {
+    setCommittedInputText("");
     setSelectedSentence("");
+    setRecommendedSentences([]);
+    setRecommendationError("");
+    setIsRecommendationLoading(false);
     setInitialInput("");
     setInitialStage("groups");
     setSelectedInitialGroup(null);
@@ -890,6 +919,39 @@ export default function Home() {
     setInputMode("initial");
     setIsResting(false);
     setScreen("free-input");
+  };
+
+  const switchToDirectInput = () => {
+    if (initialInput) {
+      setCommittedInputText((previous) => previous + initialInput);
+    }
+
+    setInitialInput("");
+    setSelectedInitialGroup(null);
+    setInitialStage("groups");
+    setInputMode("direct");
+    setDirectStage("root");
+    setSelectedSentence("");
+  };
+
+  const switchToInitialInput = () => {
+    if (directOutput) {
+      setCommittedInputText((previous) => previous + directOutput);
+    }
+
+    setDirectText("");
+    setSyllable(EMPTY_SYLLABLE);
+    setSelectedDirectInitialGroup(null);
+    setSelectedVowelGroup(null);
+    setSelectedFinalGroup(null);
+    setSelectedEnglishGroup(null);
+    setSelectedEnglishGroup4Subgroup(null);
+    setVowelPage(0);
+    setFinalPage(0);
+    setEnglishPage(0);
+    setInputMode("initial");
+    setInitialStage("groups");
+    setSelectedSentence("");
   };
 
   const commitCurrentSyllable = () => {
@@ -968,7 +1030,127 @@ export default function Home() {
       return;
     }
 
-    setDirectText((previous) => previous.slice(0, -1));
+    if (directText) {
+      setDirectText((previous) => previous.slice(0, -1));
+      return;
+    }
+
+    setCommittedInputText((previous) => previous.slice(0, -1));
+  };
+
+  const requestRecommendations = async (
+    input: string,
+    mode: "initial" | "direct" | "mixed"
+  ): Promise<string[]> => {
+    const response = await fetch("/api/recommend", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        input,
+        mode,
+      }),
+    });
+
+    const data: unknown = await response.json();
+
+    if (!response.ok) {
+      const message =
+        typeof data === "object" &&
+        data !== null &&
+        "error" in data &&
+        typeof data.error === "string"
+          ? data.error
+          : "추천 문장을 불러오지 못했습니다.";
+
+      throw new Error(message);
+    }
+
+    if (
+      typeof data !== "object" ||
+      data === null ||
+      !("suggestions" in data) ||
+      !Array.isArray(data.suggestions)
+    ) {
+      throw new Error("추천 문장 형식이 올바르지 않습니다.");
+    }
+
+    const suggestions = data.suggestions
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .slice(0, 6);
+
+    if (suggestions.length !== 6) {
+      throw new Error("추천 문장 6개를 받지 못했습니다.");
+    }
+
+    return suggestions;
+  };
+
+  const loadInitialRecommendations = async () => {
+    const input = currentInputText.trim();
+
+    if (!input) {
+      setRecommendationError("먼저 초성을 한 글자 이상 입력해 주세요.");
+      setRecommendedSentences([]);
+      return;
+    }
+
+    if (isRecommendationLoading) return;
+
+    setSelectedSentence("");
+    setRecommendedSentences([]);
+    setRecommendationError("");
+    setIsRecommendationLoading(true);
+    setInitialStage("suggestions");
+
+    try {
+      const suggestions = await requestRecommendations(input, "mixed");
+      setRecommendedSentences(suggestions);
+    } catch (error) {
+      setRecommendedSentences(initialFallbackSuggestions);
+      setRecommendationError(
+        error instanceof Error
+          ? `${error.message} 기본 추천 문장을 표시합니다.`
+          : "Gemini 추천에 실패해 기본 추천 문장을 표시합니다."
+      );
+    } finally {
+      setIsRecommendationLoading(false);
+    }
+  };
+
+  const loadDirectRecommendations = async () => {
+    const input = currentInputText.trim();
+
+    if (!input) {
+      setRecommendationError("먼저 글자나 문장을 입력해 주세요.");
+      setRecommendedSentences([]);
+      return;
+    }
+
+    if (isRecommendationLoading) return;
+
+    setSelectedSentence("");
+    setRecommendedSentences([]);
+    setRecommendationError("");
+    setIsRecommendationLoading(true);
+    setDirectStage("suggestions");
+
+    try {
+      const suggestions = await requestRecommendations(input, "mixed");
+      setRecommendedSentences(suggestions);
+    } catch (error) {
+      setRecommendedSentences(directFallbackSuggestions);
+      setRecommendationError(
+        error instanceof Error
+          ? `${error.message} 기본 추천 문장을 표시합니다.`
+          : "Gemini 추천에 실패해 기본 추천 문장을 표시합니다."
+      );
+    } finally {
+      setIsRecommendationLoading(false);
+    }
   };
 
   const selectInitialLetter = (letter: string, longBlink: boolean) => {
@@ -1197,28 +1379,27 @@ export default function Home() {
           label: "지우기",
           helper: "초성 한 글자 삭제",
           action: () => {
-            setInitialInput((previous) => previous.slice(0, -1));
+            if (initialInput) {
+              setInitialInput((previous) => previous.slice(0, -1));
+            } else {
+              setCommittedInputText((previous) => previous.slice(0, -1));
+            }
             setSelectedSentence("");
           },
         },
         {
           direction: "sw",
           label: "완전 자유 입력",
-          helper: "자음 · 모음 · 받침",
-          action: () => {
-            setInputMode("direct");
-            setDirectStage("root");
-            setSelectedSentence("");
-          },
+          helper: "현재 문장을 유지하고 자모 입력",
+          action: switchToDirectInput,
           tone: "primary",
         },
         {
           direction: "s",
           label: "문장 추천",
-          helper: "입력한 초성 확장",
+          helper: "입력한 초성으로 시작하는 문장 완성",
           action: () => {
-            setSelectedSentence("");
-            setInitialStage("suggestions");
+            void loadInitialRecommendations();
           },
         },
         {
@@ -1237,7 +1418,7 @@ export default function Home() {
         direction: INPUT_DIRECTION_ORDER[index],
         label: letter,
         helper: DOUBLE_CONSONANT_MAP[letter]
-          ? "짧게: " + letter + " · 0.8초 이상: " + DOUBLE_CONSONANT_MAP[letter]
+          ? "짧게: " + letter + " · 1.5초 이상: " + DOUBLE_CONSONANT_MAP[letter]
           : "짧게 눌러 선택",
         action: () => selectInitialLetter(letter, false),
         longAction: DOUBLE_CONSONANT_MAP[letter]
@@ -1250,7 +1431,13 @@ export default function Home() {
           direction: "e",
           label: "지우기",
           helper: "초성 한 글자 삭제",
-          action: () => setInitialInput((previous) => previous.slice(0, -1)),
+          action: () => {
+            if (initialInput) {
+              setInitialInput((previous) => previous.slice(0, -1));
+            } else {
+              setCommittedInputText((previous) => previous.slice(0, -1));
+            }
+          },
         },
         {
           direction: "sw",
@@ -1265,23 +1452,29 @@ export default function Home() {
           direction: "s",
           label: "문장 추천",
           helper: "추천 문장 보기",
-          action: () => setInitialStage("suggestions"),
+          action: () => {
+            void loadInitialRecommendations();
+          },
         },
         {
           direction: "se",
           label: "완전 자유 입력",
-          helper: "자모 입력 모드",
-          action: () => {
-            setInputMode("direct");
-            setDirectStage("root");
-          },
+          helper: "현재 문장을 유지하고 자모 입력",
+          action: switchToDirectInput,
           tone: "primary",
         }
       );
     }
 
     if (initialStage === "suggestions") {
-      radialItems = initialSuggestions.map((sentence, index) => ({
+      const suggestionsToShow =
+        recommendedSentences.length === 6
+          ? recommendedSentences
+          : initialFallbackSuggestions;
+
+      radialItems = isRecommendationLoading
+        ? []
+        : suggestionsToShow.map((sentence, index) => ({
         direction: SIX_DIRECTION_ORDER[index],
         label: sentence,
         helper:
@@ -1306,15 +1499,33 @@ export default function Home() {
           helper: "입력 화면으로",
           action: () => {
             setSelectedSentence("");
+            setRecommendedSentences([]);
+            setRecommendationError("");
             setInitialStage("groups");
           },
         },
         {
           direction: "se",
-          label: "말하기",
-          helper: "Enter · Converge",
-          action: () => speak(selectedSentence),
-          tone: "primary",
+          label: isRecommendationLoading
+            ? "생성 중..."
+            : selectedSentence
+              ? "말하기"
+              : "추천 새로고침",
+          helper: isRecommendationLoading
+            ? "Gemini 응답 대기"
+            : selectedSentence
+              ? "Enter · Converge"
+              : "새 문장 6개 생성",
+          action: () => {
+            if (isRecommendationLoading) return;
+
+            if (selectedSentence) {
+              speak(selectedSentence);
+            } else {
+              void loadInitialRecommendations();
+            }
+          },
+          tone: selectedSentence ? "primary" : "normal",
         }
       );
     }
@@ -1349,12 +1560,8 @@ export default function Home() {
           {
             direction: "sw",
             label: "초성 모드",
-            helper: "빠른 문장 입력",
-            action: () => {
-              setInputMode("initial");
-              setInitialStage("groups");
-              setSelectedSentence("");
-            },
+            helper: "현재 문장을 유지하고 초성 입력",
+            action: switchToInitialInput,
           },
           {
             direction: "s",
@@ -1367,9 +1574,7 @@ export default function Home() {
             label: "문장 추천",
             helper: "입력 문장 확장",
             action: () => {
-              commitCurrentSyllable();
-              setSelectedSentence("");
-              setDirectStage("suggestions");
+              void loadDirectRecommendations();
             },
             tone: "primary",
           },
@@ -1406,21 +1611,23 @@ export default function Home() {
             direction: "se",
             label: "문장 추천",
             helper: "입력 문장 확장",
-            action: () => setDirectStage("suggestions"),
+            action: () => {
+              void loadDirectRecommendations();
+            },
           },
         ];
       } else {
         // 초성과 중성이 완성되면 받침 선택 여부를 결정합니다.
         radialItems = [
           {
-            direction: "nw",
+            direction: "n",
             label: "받침 자음",
             helper: "ㄴ · ㅂ · ㅈ · ㅋ",
             action: () => setDirectStage("final-groups"),
             tone: "primary",
           },
           {
-            direction: "n",
+            direction: "ne",
             label: "다음 글자",
             helper: "받침 없이 글자 확정",
             action: commitSyllableAndReturnToStart,
@@ -1434,12 +1641,8 @@ export default function Home() {
           {
             direction: "sw",
             label: "초성 모드",
-            helper: "빠른 문장 입력",
-            action: () => {
-              setInputMode("initial");
-              setInitialStage("groups");
-              setSelectedSentence("");
-            },
+            helper: "현재 문장을 유지하고 초성 입력",
+            action: switchToInitialInput,
           },
           {
             direction: "s",
@@ -1452,9 +1655,7 @@ export default function Home() {
             label: "문장 추천",
             helper: "입력 문장 확장",
             action: () => {
-              commitCurrentSyllable();
-              setSelectedSentence("");
-              setDirectStage("suggestions");
+              void loadDirectRecommendations();
             },
             tone: "primary",
           },
@@ -1498,7 +1699,9 @@ export default function Home() {
           direction: "se",
           label: "추천",
           helper: "문장 추천 보기",
-          action: () => setDirectStage("suggestions"),
+          action: () => {
+            void loadDirectRecommendations();
+          },
         }
       );
     }
@@ -1510,7 +1713,7 @@ export default function Home() {
         direction: INPUT_DIRECTION_ORDER[index],
         label: letter,
         helper: DOUBLE_CONSONANT_MAP[letter]
-          ? "짧게: " + letter + " · 0.8초 이상: " + DOUBLE_CONSONANT_MAP[letter]
+          ? "짧게: " + letter + " · 1.5초 이상: " + DOUBLE_CONSONANT_MAP[letter]
           : "초성 선택",
         action: () => selectDirectInitialLetter(letter, false),
         longAction: DOUBLE_CONSONANT_MAP[letter]
@@ -1544,7 +1747,9 @@ export default function Home() {
           direction: "se",
           label: "추천",
           helper: "문장 추천 보기",
-          action: () => setDirectStage("suggestions"),
+          action: () => {
+            void loadDirectRecommendations();
+          },
         }
       );
     }
@@ -1586,7 +1791,9 @@ export default function Home() {
           direction: "se",
           label: "추천",
           helper: "문장 추천 보기",
-          action: () => setDirectStage("suggestions"),
+          action: () => {
+            void loadDirectRecommendations();
+          },
         }
       );
     }
@@ -1647,7 +1854,7 @@ export default function Home() {
             if (hasNext) {
               setVowelPage((previous) => previous + 1);
             } else {
-              setDirectStage("suggestions");
+              void loadDirectRecommendations();
             }
           },
         }
@@ -1691,7 +1898,9 @@ export default function Home() {
           direction: "se",
           label: "추천",
           helper: "문맥 기반 문장 추천",
-          action: () => setDirectStage("suggestions"),
+          action: () => {
+            void loadDirectRecommendations();
+          },
         }
       );
     }
@@ -1751,7 +1960,7 @@ export default function Home() {
             if (hasNext) {
               setFinalPage((previous) => previous + 1);
             } else {
-              setDirectStage("suggestions");
+              void loadDirectRecommendations();
             }
           },
         }
@@ -1803,7 +2012,9 @@ export default function Home() {
           direction: "se",
           label: "추천",
           helper: "문장 추천 보기",
-          action: () => setDirectStage("suggestions"),
+          action: () => {
+            void loadDirectRecommendations();
+          },
         }
       );
     }
@@ -1852,7 +2063,9 @@ export default function Home() {
           direction: "se",
           label: "추천",
           helper: "문장 추천 보기",
-          action: () => setDirectStage("suggestions"),
+          action: () => {
+            void loadDirectRecommendations();
+          },
         }
       );
     }
@@ -1924,7 +2137,7 @@ export default function Home() {
             if (hasNext) {
               setEnglishPage((previous) => previous + 1);
             } else {
-              setDirectStage("suggestions");
+              void loadDirectRecommendations();
             }
           },
         }
@@ -1932,7 +2145,14 @@ export default function Home() {
     }
 
     if (directStage === "suggestions") {
-      radialItems = directSuggestions.map((sentence, index) => ({
+      const suggestionsToShow =
+        recommendedSentences.length === 6
+          ? recommendedSentences
+          : directFallbackSuggestions;
+
+      radialItems = isRecommendationLoading
+        ? []
+        : suggestionsToShow.map((sentence, index) => ({
         direction: SIX_DIRECTION_ORDER[index],
         label: sentence,
         helper:
@@ -1957,15 +2177,33 @@ export default function Home() {
           helper: "입력 화면으로",
           action: () => {
             setSelectedSentence("");
+            setRecommendedSentences([]);
+            setRecommendationError("");
             setDirectStage("root");
           },
         },
         {
           direction: "se",
-          label: "말하기",
-          helper: "Enter · Converge",
-          action: () => speak(selectedSentence || directOutput.trim()),
-          tone: "primary",
+          label: isRecommendationLoading
+            ? "생성 중..."
+            : selectedSentence
+              ? "말하기"
+              : "추천 새로고침",
+          helper: isRecommendationLoading
+            ? "Gemini 응답 대기"
+            : selectedSentence
+              ? "Enter · Converge"
+              : "새 문장 6개 생성",
+          action: () => {
+            if (isRecommendationLoading) return;
+
+            if (selectedSentence) {
+              speak(selectedSentence);
+            } else {
+              void loadDirectRecommendations();
+            }
+          },
+          tone: selectedSentence ? "primary" : "normal",
         }
       );
     }
@@ -1977,7 +2215,7 @@ export default function Home() {
   const screenRef = useRef(screen);
   const inputModeRef = useRef(inputMode);
   const selectedSentenceRef = useRef(selectedSentence);
-  const directOutputRef = useRef(directOutput);
+  const directOutputRef = useRef(currentInputText);
 
   useEffect(() => {
     radialItemsRef.current = radialItems;
@@ -1986,7 +2224,7 @@ export default function Home() {
     screenRef.current = screen;
     inputModeRef.current = inputMode;
     selectedSentenceRef.current = selectedSentence;
-    directOutputRef.current = directOutput;
+    directOutputRef.current = currentInputText;
   });
 
   const blinkStartRef = useRef<number | null>(null);
@@ -2498,10 +2736,17 @@ export default function Home() {
     workZoneText = "원하는 표현의 종류를 선택하세요.";
   } else if (screen === "category") {
     workZoneText = selectedSentence || "원하는 문장을 선택하세요.";
+  } else if (isRecommendationLoading) {
+    workZoneText = "Gemini가 추천 문장을 만들고 있습니다...";
+  } else if (recommendationError && !selectedSentence) {
+    workZoneText = recommendationError;
   } else if (inputMode === "initial") {
-    workZoneText = selectedSentence || initialInput || "초성을 입력하세요.";
+    workZoneText =
+      selectedSentence ||
+      currentInputText ||
+      `초성을 입력하세요\n예: 물 주세요 → ㅁㅈㅅㅇ`;
   } else {
-    workZoneText = selectedSentence || directOutput || "자모를 입력하세요.";
+    workZoneText = selectedSentence || currentInputText || "자모를 입력하세요.";
   }
 
   return (
@@ -2561,7 +2806,7 @@ export default function Home() {
         `}</style>
 
         <footer className="mt-5 text-center text-sm text-slate-500">
-          외곽 버튼 클릭 가능 · 가운데 Zone 클릭 가능 · 정면 Long blink는 휴식 전환 · Enter는 Converge
+          Gemini 추천 연결 · 외곽 버튼 클릭 가능 · 정면 Long blink는 휴식 전환 · Enter는 Converge
         </footer>
       </div>
     </main>
