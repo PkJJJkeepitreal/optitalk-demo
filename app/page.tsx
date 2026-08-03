@@ -2499,7 +2499,7 @@ export default function Home() {
               <p className="text-sm font-semibold text-blue-600">
                 EOG · EMG · LLM 기반 AAC
               </p>
-              <h1 className="mt-1 text-4xl font-bold">OptiTalk</h1>
+              <h1 className="mt-1 text-4xl font-bold">Glim-AAC</h1>
               <p className="mt-2 text-slate-600">
                 눈의 움직임으로 원하는 표현을 선택하세요.
               </p>
@@ -2754,7 +2754,7 @@ export default function Home() {
       <div className="mx-auto max-w-6xl">
         <header className="mb-5 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold text-blue-600">OPTITALK DEMO</p>
+            <p className="text-sm font-semibold text-blue-600">GLIM-AAC DEMO</p>
             <h1 className="mt-1 text-3xl font-bold">{pageTitle}</h1>
             <p className="mt-2 text-sm text-slate-500">
               방향키를 누른 뒤 Space를 누르면 선택됩니다. 대각선은 두 방향키를 순서대로 입력합니다.
