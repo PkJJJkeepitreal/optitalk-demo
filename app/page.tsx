@@ -379,30 +379,11 @@ function getDirectionFromKeys(keys: string[]): Direction | null {
   return null;
 }
 
-let lastTouchActivationAt = 0;
-
-function handleTouchPointerUp(
-  event: ReactPointerEvent<HTMLButtonElement>,
-  action: () => void
-) {
-  if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
-
-  lastTouchActivationAt = Date.now();
-  action();
-}
-
-function handleMouseOrKeyboardClick(action: () => void) {
-  // 모바일 브라우저가 touch 뒤에 click을 한 번 더 만드는 경우 중복 실행을 막습니다.
-  if (Date.now() - lastTouchActivationAt < 700) return;
-  action();
-}
-
 function HomeButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
-      onPointerUp={(event) => handleTouchPointerUp(event, onClick)}
-      onClick={() => handleMouseOrKeyboardClick(onClick)}
+      onClick={onClick}
       className="touch-manipulation rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-400 hover:text-blue-700"
     >
       ← 홈으로
@@ -438,7 +419,9 @@ function RadialPad({
   speechAnimationKey?: number;
 }) {
   const pointerStartRef = useRef<Partial<Record<Direction, number>>>({});
+  const suppressClickUntilRef = useRef<Partial<Record<Direction, number>>>({});
   const centerPointerStartRef = useRef<number | null>(null);
+  const centerSuppressClickUntilRef = useRef(0);
   const [pointerDirection, setPointerDirection] = useState<Direction | null>(null);
 
   const handlePointerDown = (
@@ -447,7 +430,6 @@ function RadialPad({
   ) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
 
-    event.currentTarget.setPointerCapture(event.pointerId);
     pointerStartRef.current[direction] = Date.now();
     setPointerDirection(direction);
   };
@@ -466,10 +448,12 @@ function RadialPad({
 
     const duration = Date.now() - startedAt;
 
+    // 짧은 탭은 브라우저의 표준 click 이벤트에서 처리합니다.
+    // 이렇게 하면 iOS/Android/PC 모두 같은 방식으로 동작합니다.
+    // 1.5초 이상 길게 누르기만 여기서 별도로 처리합니다.
     if (duration >= 1500 && item.longAction) {
+      suppressClickUntilRef.current[item.direction] = Date.now() + 1000;
       item.longAction();
-    } else {
-      item.action();
     }
   };
 
@@ -510,6 +494,11 @@ function RadialPad({
         key={direction}
         type="button"
         disabled={isResting}
+        onClick={() => {
+          const suppressUntil = suppressClickUntilRef.current[item.direction] ?? 0;
+          if (Date.now() < suppressUntil) return;
+          item.action();
+        }}
         onPointerDown={(event: ReactPointerEvent<HTMLButtonElement>) =>
           handlePointerDown(event, item.direction)
         }
@@ -579,9 +568,12 @@ function RadialPad({
 
         <button
           type="button"
+          onClick={() => {
+            if (Date.now() < centerSuppressClickUntilRef.current) return;
+            onCenter();
+          }}
           onPointerDown={(event: ReactPointerEvent<HTMLButtonElement>) => {
             if (event.pointerType === "mouse" && event.button !== 0) return;
-            event.currentTarget.setPointerCapture(event.pointerId);
             centerPointerStartRef.current = Date.now();
           }}
           onPointerUp={(event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -595,9 +587,8 @@ function RadialPad({
             const duration = Date.now() - startedAt;
 
             if (duration >= 1500 && onCenterLong) {
+              centerSuppressClickUntilRef.current = Date.now() + 1000;
               onCenterLong();
-            } else {
-              onCenter();
             }
           }}
           onPointerCancel={() => {
@@ -2548,8 +2539,7 @@ export default function Home() {
             <button
               type="button"
               disabled={isResting}
-              onPointerUp={(event) => handleTouchPointerUp(event, openManual)}
-              onClick={() => handleMouseOrKeyboardClick(openManual)}
+              onClick={openManual}
               className={
                 "rounded-xl border px-4 py-2 text-sm font-semibold shadow-sm transition disabled:opacity-30 " +
                 (manualActive
@@ -2567,10 +2557,7 @@ export default function Home() {
             <button
               type="button"
               disabled={isResting}
-              onPointerUp={(event) =>
-                handleTouchPointerUp(event, openCategoryMenu)
-              }
-              onClick={() => handleMouseOrKeyboardClick(openCategoryMenu)}
+              onClick={openCategoryMenu}
               className={
                 "min-h-44 touch-manipulation rounded-3xl border-2 p-5 text-left shadow-sm transition sm:min-h-64 sm:p-7 md:min-h-80 md:p-8 disabled:opacity-30 " +
                 (categoryActive
@@ -2600,8 +2587,7 @@ export default function Home() {
             <button
               type="button"
               disabled={isResting}
-              onPointerUp={(event) => handleTouchPointerUp(event, openFreeInput)}
-              onClick={() => handleMouseOrKeyboardClick(openFreeInput)}
+              onClick={openFreeInput}
               className={
                 "min-h-44 touch-manipulation rounded-3xl border-2 p-5 text-left text-white shadow-sm transition sm:min-h-64 sm:p-7 md:min-h-80 md:p-8 disabled:opacity-30 " +
                 (inputActive
@@ -2642,12 +2628,7 @@ export default function Home() {
                     key={message}
                     type="button"
                     disabled={isResting}
-                    onPointerUp={(event) =>
-                      handleTouchPointerUp(event, () => speak(message))
-                    }
-                    onClick={() =>
-                      handleMouseOrKeyboardClick(() => speak(message))
-                    }
+                    onClick={() => speak(message)}
                     className={
                       "min-h-20 touch-manipulation rounded-2xl border-2 px-4 py-3 text-left font-bold transition sm:min-h-24 sm:py-4 disabled:opacity-30 " +
                       (isActive
@@ -2667,10 +2648,7 @@ export default function Home() {
 
           <button
             type="button"
-            onPointerUp={(event) =>
-              handleTouchPointerUp(event, toggleRestFromHome)
-            }
-            onClick={() => handleMouseOrKeyboardClick(toggleRestFromHome)}
+            onClick={toggleRestFromHome}
             className={
               "mt-6 w-full touch-manipulation rounded-2xl border-2 p-4 text-center font-semibold transition " +
               (isResting
@@ -2840,6 +2818,7 @@ export default function Home() {
 
           button {
             -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
           }
 
           @keyframes optitalkSpeechSweep {
