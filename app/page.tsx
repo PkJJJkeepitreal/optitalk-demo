@@ -384,7 +384,7 @@ function HomeButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-400 hover:text-blue-700"
+      className="touch-manipulation rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-400 hover:text-blue-700"
     >
       ← 홈으로
     </button>
@@ -426,7 +426,7 @@ function RadialPad({
     event: ReactPointerEvent<HTMLButtonElement>,
     direction: Direction
   ) => {
-    if (event.button !== 0) return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
 
     event.currentTarget.setPointerCapture(event.pointerId);
     pointerStartRef.current[direction] = Date.now();
@@ -437,7 +437,7 @@ function RadialPad({
     event: ReactPointerEvent<HTMLButtonElement>,
     item: RadialItem
   ) => {
-    if (event.button !== 0) return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
 
     const startedAt = pointerStartRef.current[item.direction];
     delete pointerStartRef.current[item.direction];
@@ -498,8 +498,9 @@ function RadialPad({
           finishPointerPress(event, item)
         }
         onPointerCancel={() => cancelPointerPress(item.direction)}
+        onContextMenu={(event) => event.preventDefault()}
         className={
-          `flex ${sizeClass} select-none flex-col items-center justify-center rounded-2xl border-2 p-2.5 text-center transition disabled:cursor-not-allowed disabled:opacity-30 ` +
+          `flex ${sizeClass} min-w-0 touch-manipulation select-none flex-col items-center justify-center rounded-2xl border-2 p-1.5 text-center transition sm:p-2.5 disabled:cursor-not-allowed disabled:opacity-30 ` +
           (isActive && !isResting
             ? isConfirming || isPointerActive
               ? "scale-110 border-blue-700 bg-blue-700 text-white shadow-xl"
@@ -507,12 +508,14 @@ function RadialPad({
             : normalClass)
         }
       >
-        <span className="text-base font-bold md:text-lg">{item.label}</span>
+        <span className="break-words text-[clamp(0.82rem,3.6vw,1.125rem)] font-bold leading-tight">
+          {item.label}
+        </span>
 
         {item.helper && (
           <span
             className={
-              "mt-1.5 text-[11px] md:text-xs " +
+              "mt-1 break-words text-[clamp(0.62rem,2.5vw,0.75rem)] leading-tight sm:mt-1.5 " +
               (isActive
                 ? "text-blue-100"
                 : item.tone === "primary"
@@ -526,7 +529,7 @@ function RadialPad({
 
         <span
           className={
-            "mt-2 rounded-full px-2 py-1 text-[10px] font-semibold " +
+            "mt-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold sm:mt-2 sm:px-2 sm:py-1 sm:text-[10px] " +
             (isActive
               ? "bg-white/20 text-white"
               : item.tone === "primary"
@@ -543,27 +546,27 @@ function RadialPad({
   const centerIsPressed = !activeDirection && isBlinkPressed;
 
   return (
-    <div className="space-y-3">
-      {/* 상단 3개 칸은 동일한 너비 */}
-      <div className="grid grid-cols-3 gap-3">
-        {renderDirectionalSlot("nw", "min-h-24")}
-        {renderDirectionalSlot("n", "min-h-24")}
-        {renderDirectionalSlot("ne", "min-h-24")}
+    <div className="space-y-2 sm:space-y-3">
+      {/* 폭은 화면에 따라 자연스럽게 줄고, 높이는 viewport 높이에 맞춰 조절됩니다. */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        {renderDirectionalSlot("nw", "min-h-[clamp(4.25rem,11vh,6rem)]")}
+        {renderDirectionalSlot("n", "min-h-[clamp(4.25rem,11vh,6rem)]")}
+        {renderDirectionalSlot("ne", "min-h-[clamp(4.25rem,11vh,6rem)]")}
       </div>
 
-      {/* 가운데는 Work Zone을 넓게, 좌우 버튼은 세로로 길게 */}
-      <div className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,2.4fr)_minmax(0,0.8fr)] items-stretch gap-3">
-        {renderDirectionalSlot("w", "min-h-[19rem]")}
+      {/* 세로 화면에서는 좁게, 가로 화면에서는 여유 있게 늘어나는 3열 구조 */}
+      <div className="grid grid-cols-[minmax(4.25rem,0.85fr)_minmax(0,2.3fr)_minmax(4.25rem,0.85fr)] items-stretch gap-2 sm:gap-3">
+        {renderDirectionalSlot("w", "min-h-[clamp(11rem,42vh,19rem)]")}
 
         <button
           type="button"
           onPointerDown={(event: ReactPointerEvent<HTMLButtonElement>) => {
-            if (event.button !== 0) return;
+            if (event.pointerType === "mouse" && event.button !== 0) return;
             event.currentTarget.setPointerCapture(event.pointerId);
             centerPointerStartRef.current = Date.now();
           }}
           onPointerUp={(event: ReactPointerEvent<HTMLButtonElement>) => {
-            if (event.button !== 0) return;
+            if (event.pointerType === "mouse" && event.button !== 0) return;
 
             const startedAt = centerPointerStartRef.current;
             centerPointerStartRef.current = null;
@@ -581,8 +584,9 @@ function RadialPad({
           onPointerCancel={() => {
             centerPointerStartRef.current = null;
           }}
+          onContextMenu={(event) => event.preventDefault()}
           className={
-            "relative flex min-h-[19rem] select-none flex-col items-center justify-center overflow-hidden rounded-3xl border-2 px-8 py-10 text-center transition " +
+            "relative flex min-h-[clamp(11rem,42vh,19rem)] min-w-0 touch-manipulation select-none flex-col items-center justify-center overflow-hidden rounded-3xl border-2 px-3 py-5 text-center transition sm:px-5 sm:py-7 md:px-8 md:py-10 " +
             (isResting
               ? "border-emerald-500 bg-emerald-600 text-white"
               : centerIsPressed
@@ -616,13 +620,13 @@ function RadialPad({
               {isResting ? "REST MODE" : isSpeaking ? "SPEAKING" : centerTitle}
             </span>
 
-            <p className="mt-5 max-w-full whitespace-pre-line break-words text-2xl font-bold leading-relaxed md:text-4xl">
+            <p className="mt-3 max-w-full whitespace-pre-line break-words text-[clamp(1.15rem,5vw,2.25rem)] font-bold leading-relaxed sm:mt-5">
               {isResting ? "휴식 중입니다." : centerText}
             </p>
 
             <span
               className={
-                "mt-5 text-xs font-semibold md:text-sm " +
+                "mt-3 break-words text-[clamp(0.62rem,2.5vw,0.875rem)] font-semibold sm:mt-5 " +
                 (isResting
                   ? "text-emerald-100"
                   : isSpeaking
@@ -631,22 +635,22 @@ function RadialPad({
               }
             >
               {isResting
-                ? "Space를 1.5초 이상 길게 눌러 휴식 해제 · 클릭 가능"
+                ? "Space를 1.5초 이상 길게 눌러 휴식 해제 · 클릭/터치 가능"
                 : isSpeaking
                   ? "음성 출력이 끝나면 Work Zone이 초기화됩니다."
-                  : centerHelper + " · 클릭 가능"}
+                  : centerHelper + " · 클릭/터치 가능"}
             </span>
           </div>
         </button>
 
-        {renderDirectionalSlot("e", "min-h-[19rem]")}
+        {renderDirectionalSlot("e", "min-h-[clamp(11rem,42vh,19rem)]")}
       </div>
 
       {/* 하단 3개 칸도 동일한 너비 */}
-      <div className="grid grid-cols-3 gap-3">
-        {renderDirectionalSlot("sw", "min-h-24")}
-        {renderDirectionalSlot("s", "min-h-24")}
-        {renderDirectionalSlot("se", "min-h-24")}
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        {renderDirectionalSlot("sw", "min-h-[clamp(4.25rem,11vh,6rem)]")}
+        {renderDirectionalSlot("s", "min-h-[clamp(4.25rem,11vh,6rem)]")}
+        {renderDirectionalSlot("se", "min-h-[clamp(4.25rem,11vh,6rem)]")}
       </div>
     </div>
   );
@@ -2492,16 +2496,16 @@ export default function Home() {
     const emergencyDirections: Direction[] = ["sw", "s", "se"];
 
     return (
-      <main className="min-h-screen bg-slate-100 p-4 text-slate-900 md:p-8">
+      <main className="min-h-[100dvh] bg-slate-100 p-2 text-slate-900 sm:p-4 md:p-8">
         <div className="mx-auto max-w-6xl">
-          <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
+          <header className="mb-4 flex flex-wrap items-start justify-between gap-3 sm:mb-8 sm:gap-4">
             <div>
               <p className="text-sm font-semibold text-blue-600">
                 EOG · EMG · LLM 기반 AAC
               </p>
-              <h1 className="mt-1 text-4xl font-bold">Glim-AAC</h1>
-              <p className="mt-2 text-slate-600">
-                눈의 움직임으로 원하는 표현을 선택하세요.
+              <h1 className="mt-1 text-3xl font-bold sm:text-4xl">Glim-AAC</h1>
+              <p className="mt-2 text-sm text-slate-600 sm:text-base">
+                PC에서는 클릭/키보드, 모바일에서는 터치로 사용할 수 있습니다.
               </p>
             </div>
 
@@ -2527,7 +2531,7 @@ export default function Home() {
 
           {statusBox}
 
-          <section className="mt-5 grid grid-cols-2 gap-5">
+          <section className="mt-4 grid grid-cols-1 gap-3 sm:mt-5 sm:grid-cols-2 sm:gap-5">
             <button
               type="button"
               disabled={isResting}
@@ -2537,7 +2541,7 @@ export default function Home() {
                 setScreen("category-menu");
               }}
               className={
-                "min-h-80 rounded-3xl border-2 p-8 text-left shadow-sm transition disabled:opacity-30 " +
+                "min-h-44 touch-manipulation rounded-3xl border-2 p-5 text-left shadow-sm transition sm:min-h-64 sm:p-7 md:min-h-80 md:p-8 disabled:opacity-30 " +
                 (categoryActive
                   ? "scale-105 border-blue-800 bg-blue-800 text-white shadow-xl"
                   : "border-blue-500 bg-blue-600 text-white hover:-translate-y-1 hover:bg-blue-700")
@@ -2545,20 +2549,20 @@ export default function Home() {
             >
               <span
                 className={
-                  "flex h-24 w-24 items-center justify-center rounded-3xl text-6xl " +
+                  "flex h-16 w-16 items-center justify-center rounded-2xl text-4xl sm:h-20 sm:w-20 sm:rounded-3xl sm:text-5xl md:h-24 md:w-24 md:text-6xl " +
                   "bg-white/15"
                 }
               >
                 ◫
               </span>
-              <p className="mt-10 text-3xl font-bold">카테고리 선택</p>
+              <p className="mt-6 text-2xl font-bold sm:mt-8 sm:text-3xl md:mt-10">카테고리 선택</p>
               <p
                 className={
                   "mt-3 text-lg " +
                   "text-blue-100"
                 }
               >
-                왼쪽 방향키 + Space
+                왼쪽 방향키 + Space · 모바일은 터치
               </p>
             </button>
 
@@ -2567,18 +2571,18 @@ export default function Home() {
               disabled={isResting}
               onClick={openFreeInput}
               className={
-                "min-h-80 rounded-3xl border-2 p-8 text-left text-white shadow-sm transition disabled:opacity-30 " +
+                "min-h-44 touch-manipulation rounded-3xl border-2 p-5 text-left text-white shadow-sm transition sm:min-h-64 sm:p-7 md:min-h-80 md:p-8 disabled:opacity-30 " +
                 (inputActive
                   ? "scale-105 border-blue-800 bg-blue-800 shadow-xl"
                   : "border-blue-500 bg-blue-600 hover:-translate-y-1 hover:bg-blue-700")
               }
             >
-              <span className="flex h-24 w-24 items-center justify-center rounded-3xl bg-white/15 text-6xl">
+              <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 text-4xl sm:h-20 sm:w-20 sm:rounded-3xl sm:text-5xl md:h-24 md:w-24 md:text-6xl">
                 ⌨
               </span>
-              <p className="mt-10 text-3xl font-bold">자유 입력</p>
+              <p className="mt-6 text-2xl font-bold sm:mt-8 sm:text-3xl md:mt-10">자유 입력</p>
               <p className="mt-3 text-lg text-blue-100">
-                오른쪽 방향키 + Space
+                오른쪽 방향키 + Space · 모바일은 터치
               </p>
             </button>
           </section>
@@ -2596,7 +2600,7 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
               {EMERGENCY_MESSAGES.map((message, index) => {
                 const direction = emergencyDirections[index];
                 const isActive = activeDirection === direction;
@@ -2608,7 +2612,7 @@ export default function Home() {
                     disabled={isResting}
                     onClick={() => speak(message)}
                     className={
-                      "min-h-24 rounded-2xl border-2 px-4 py-4 text-left font-bold transition disabled:opacity-30 " +
+                      "min-h-20 touch-manipulation rounded-2xl border-2 px-4 py-3 text-left font-bold transition sm:min-h-24 sm:py-4 disabled:opacity-30 " +
                       (isActive
                         ? "scale-105 border-red-800 bg-red-800 text-white shadow-lg"
                         : "border-red-500 bg-red-600 text-white hover:bg-red-700")
@@ -2628,7 +2632,7 @@ export default function Home() {
             type="button"
             onClick={() => setIsResting((previous) => !previous)}
             className={
-              "mt-6 w-full rounded-2xl border-2 p-4 text-center font-semibold transition " +
+              "mt-6 w-full touch-manipulation rounded-2xl border-2 p-4 text-center font-semibold transition " +
               (isResting
                 ? "border-emerald-500 bg-emerald-600 text-white"
                 : !activeDirection && isBlinkPressed
@@ -2637,8 +2641,8 @@ export default function Home() {
             }
           >
             {isResting
-              ? "휴식 중 · Space를 1.5초 이상 길게 누르거나 클릭하여 해제"
-              : "휴식 Zone · Space를 1.5초 이상 길게 누르거나 클릭"}
+              ? "휴식 중 · 길게 누르거나 클릭/터치하여 해제"
+              : "휴식 Zone · 길게 누르거나 클릭/터치"}
           </button>
         </div>
       </main>
@@ -2647,19 +2651,19 @@ export default function Home() {
 
   if (screen === "manual") {
     return (
-      <main className="min-h-screen bg-slate-100 p-4 text-slate-900 md:p-8">
+      <main className="min-h-[100dvh] bg-slate-100 p-2 text-slate-900 sm:p-4 md:p-8">
         <div className="mx-auto max-w-6xl">
-          <header className="mb-5 flex flex-wrap items-center justify-between gap-4">
+          <header className="mb-3 flex flex-wrap items-center justify-between gap-3 sm:mb-5 sm:gap-4">
             <div>
               <p className="text-sm font-semibold text-blue-600">DEMO GUIDE</p>
-              <h1 className="mt-1 text-3xl font-bold">Demo 사용설명서</h1>
+              <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Demo 사용설명서</h1>
             </div>
             <HomeButton onClick={goHome} />
           </header>
 
           {statusBox}
 
-          <section className="mt-5">
+          <section className="mt-3 sm:mt-5">
             <RadialPad
               items={radialItems}
               activeDirection={activeDirection}
@@ -2673,8 +2677,8 @@ export default function Home() {
                 setIsResting(nextResting);
                 setManualMessage(
                   nextResting
-                    ? "가운데 Zone 클릭으로 휴식 모드에 들어갔습니다."
-                    : "가운데 Zone 클릭으로 휴식 모드를 해제했습니다."
+                    ? "가운데 Zone 클릭/터치로 휴식 모드에 들어갔습니다."
+                    : "가운데 Zone 클릭/터치로 휴식 모드를 해제했습니다."
                 );
               }}
               onCenterLong={() => {
@@ -2689,7 +2693,7 @@ export default function Home() {
             />
           </section>
 
-          <section className="mt-5 grid gap-4 md:grid-cols-3">
+          <section className="mt-5 grid gap-3 sm:grid-cols-3 sm:gap-4">
             <div className="rounded-3xl bg-white p-5 shadow-sm">
               <p className="text-sm font-semibold text-blue-600">눈 깜빡임</p>
               <p className="mt-2 text-2xl font-bold">Space</p>
@@ -2750,14 +2754,14 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-4 text-slate-900 md:p-8">
+    <main className="min-h-[100dvh] bg-slate-100 p-2 text-slate-900 sm:p-4 md:p-8">
       <div className="mx-auto max-w-6xl">
-        <header className="mb-5 flex flex-wrap items-end justify-between gap-4">
+        <header className="mb-3 flex flex-wrap items-end justify-between gap-3 sm:mb-5 sm:gap-4">
           <div>
             <p className="text-sm font-semibold text-blue-600">GLIM-AAC DEMO</p>
-            <h1 className="mt-1 text-3xl font-bold">{pageTitle}</h1>
+            <h1 className="mt-1 text-2xl font-bold sm:text-3xl">{pageTitle}</h1>
             <p className="mt-2 text-sm text-slate-500">
-              방향키를 누른 뒤 Space를 누르면 선택됩니다. 대각선은 두 방향키를 순서대로 입력합니다.
+              PC에서는 방향키 + Space로, 모바일에서는 원하는 버튼을 터치해 선택합니다. 화면 회전 시 버튼 크기도 자동 조절됩니다.
             </p>
           </div>
           <HomeButton onClick={goHome} />
@@ -2765,7 +2769,7 @@ export default function Home() {
 
         {statusBox}
 
-        <section className="mt-5">
+        <section className="mt-3 sm:mt-5">
           <RadialPad
             items={radialItems}
             activeDirection={activeDirection}
@@ -2787,6 +2791,14 @@ export default function Home() {
         </section>
 
         <style jsx global>{`
+          html {
+            -webkit-text-size-adjust: 100%;
+          }
+
+          button {
+            -webkit-tap-highlight-color: transparent;
+          }
+
           @keyframes optitalkSpeechSweep {
             0% {
               transform: translateX(-130%);
@@ -2806,7 +2818,7 @@ export default function Home() {
         `}</style>
 
         <footer className="mt-5 text-center text-sm text-slate-500">
-          Gemini 추천 연결 · 외곽 버튼 클릭 가능 · 정면 Long blink는 휴식 전환 · Enter는 Converge
+          Gemini 추천 연결 · PC 클릭/키보드 · 모바일 터치 지원 · 가로/세로 화면 자동 대응
         </footer>
       </div>
     </main>
