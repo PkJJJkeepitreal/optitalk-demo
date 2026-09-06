@@ -379,11 +379,30 @@ function getDirectionFromKeys(keys: string[]): Direction | null {
   return null;
 }
 
+let lastTouchActivationAt = 0;
+
+function handleTouchPointerUp(
+  event: ReactPointerEvent<HTMLButtonElement>,
+  action: () => void
+) {
+  if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
+
+  lastTouchActivationAt = Date.now();
+  action();
+}
+
+function handleMouseOrKeyboardClick(action: () => void) {
+  // 모바일 브라우저가 touch 뒤에 click을 한 번 더 만드는 경우 중복 실행을 막습니다.
+  if (Date.now() - lastTouchActivationAt < 700) return;
+  action();
+}
+
 function HomeButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      onPointerUp={(event) => handleTouchPointerUp(event, onClick)}
+      onClick={() => handleMouseOrKeyboardClick(onClick)}
       className="touch-manipulation rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-400 hover:text-blue-700"
     >
       ← 홈으로
@@ -635,10 +654,10 @@ function RadialPad({
               }
             >
               {isResting
-                ? "Space를 1.5초 이상 길게 눌러 휴식 해제 · 클릭/터치 가능"
+                ? "Space를 1.5초 이상 길게 눌러 휴식 해제 · 클릭 가능"
                 : isSpeaking
                   ? "음성 출력이 끝나면 Work Zone이 초기화됩니다."
-                  : centerHelper + " · 클릭/터치 가능"}
+                  : centerHelper + " · 클릭 가능"}
             </span>
           </div>
         </button>
@@ -2495,6 +2514,23 @@ export default function Home() {
     const manualActive = activeDirection === "n";
     const emergencyDirections: Direction[] = ["sw", "s", "se"];
 
+    const openManual = () => {
+      setManualMessage("방향키를 순서대로 누른 뒤 Space를 눌러보세요.");
+      setManualSelectedDirection(null);
+      setIsResting(false);
+      setScreen("manual");
+    };
+
+    const openCategoryMenu = () => {
+      setSelectedSentence("");
+      setIsResting(false);
+      setScreen("category-menu");
+    };
+
+    const toggleRestFromHome = () => {
+      setIsResting((previous) => !previous);
+    };
+
     return (
       <main className="min-h-[100dvh] bg-slate-100 p-2 text-slate-900 sm:p-4 md:p-8">
         <div className="mx-auto max-w-6xl">
@@ -2505,19 +2541,15 @@ export default function Home() {
               </p>
               <h1 className="mt-1 text-3xl font-bold sm:text-4xl">Glim-AAC</h1>
               <p className="mt-2 text-sm text-slate-600 sm:text-base">
-                PC에서는 클릭/키보드, 모바일에서는 터치로 사용할 수 있습니다.
+                눈의 움직임으로 원하는 표현을 선택하세요.
               </p>
             </div>
 
             <button
               type="button"
               disabled={isResting}
-              onClick={() => {
-                setManualMessage("방향키를 순서대로 누른 뒤 Space를 눌러보세요.");
-                setManualSelectedDirection(null);
-                setIsResting(false);
-                setScreen("manual");
-              }}
+              onPointerUp={(event) => handleTouchPointerUp(event, openManual)}
+              onClick={() => handleMouseOrKeyboardClick(openManual)}
               className={
                 "rounded-xl border px-4 py-2 text-sm font-semibold shadow-sm transition disabled:opacity-30 " +
                 (manualActive
@@ -2535,11 +2567,10 @@ export default function Home() {
             <button
               type="button"
               disabled={isResting}
-              onClick={() => {
-                setSelectedSentence("");
-                setIsResting(false);
-                setScreen("category-menu");
-              }}
+              onPointerUp={(event) =>
+                handleTouchPointerUp(event, openCategoryMenu)
+              }
+              onClick={() => handleMouseOrKeyboardClick(openCategoryMenu)}
               className={
                 "min-h-44 touch-manipulation rounded-3xl border-2 p-5 text-left shadow-sm transition sm:min-h-64 sm:p-7 md:min-h-80 md:p-8 disabled:opacity-30 " +
                 (categoryActive
@@ -2562,14 +2593,15 @@ export default function Home() {
                   "text-blue-100"
                 }
               >
-                왼쪽 방향키 + Space · 모바일은 터치
+                왼쪽 방향키 + Space
               </p>
             </button>
 
             <button
               type="button"
               disabled={isResting}
-              onClick={openFreeInput}
+              onPointerUp={(event) => handleTouchPointerUp(event, openFreeInput)}
+              onClick={() => handleMouseOrKeyboardClick(openFreeInput)}
               className={
                 "min-h-44 touch-manipulation rounded-3xl border-2 p-5 text-left text-white shadow-sm transition sm:min-h-64 sm:p-7 md:min-h-80 md:p-8 disabled:opacity-30 " +
                 (inputActive
@@ -2582,7 +2614,7 @@ export default function Home() {
               </span>
               <p className="mt-6 text-2xl font-bold sm:mt-8 sm:text-3xl md:mt-10">자유 입력</p>
               <p className="mt-3 text-lg text-blue-100">
-                오른쪽 방향키 + Space · 모바일은 터치
+                오른쪽 방향키 + Space
               </p>
             </button>
           </section>
@@ -2610,7 +2642,12 @@ export default function Home() {
                     key={message}
                     type="button"
                     disabled={isResting}
-                    onClick={() => speak(message)}
+                    onPointerUp={(event) =>
+                      handleTouchPointerUp(event, () => speak(message))
+                    }
+                    onClick={() =>
+                      handleMouseOrKeyboardClick(() => speak(message))
+                    }
                     className={
                       "min-h-20 touch-manipulation rounded-2xl border-2 px-4 py-3 text-left font-bold transition sm:min-h-24 sm:py-4 disabled:opacity-30 " +
                       (isActive
@@ -2630,7 +2667,10 @@ export default function Home() {
 
           <button
             type="button"
-            onClick={() => setIsResting((previous) => !previous)}
+            onPointerUp={(event) =>
+              handleTouchPointerUp(event, toggleRestFromHome)
+            }
+            onClick={() => handleMouseOrKeyboardClick(toggleRestFromHome)}
             className={
               "mt-6 w-full touch-manipulation rounded-2xl border-2 p-4 text-center font-semibold transition " +
               (isResting
@@ -2641,8 +2681,8 @@ export default function Home() {
             }
           >
             {isResting
-              ? "휴식 중 · 길게 누르거나 클릭/터치하여 해제"
-              : "휴식 Zone · 길게 누르거나 클릭/터치"}
+              ? "휴식 중 · Space를 1.5초 이상 길게 누르거나 클릭하여 해제"
+              : "휴식 Zone · Space를 1.5초 이상 길게 누르거나 클릭"}
           </button>
         </div>
       </main>
@@ -2657,6 +2697,9 @@ export default function Home() {
             <div>
               <p className="text-sm font-semibold text-blue-600">DEMO GUIDE</p>
               <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Demo 사용설명서</h1>
+              <p className="mt-2 text-sm text-slate-500">
+                모바일에서는 화면의 버튼을 직접 터치해 선택할 수 있습니다.
+              </p>
             </div>
             <HomeButton onClick={goHome} />
           </header>
@@ -2677,8 +2720,8 @@ export default function Home() {
                 setIsResting(nextResting);
                 setManualMessage(
                   nextResting
-                    ? "가운데 Zone 클릭/터치로 휴식 모드에 들어갔습니다."
-                    : "가운데 Zone 클릭/터치로 휴식 모드를 해제했습니다."
+                    ? "가운데 Zone을 터치하거나 클릭해 휴식 모드에 들어갔습니다."
+                    : "가운데 Zone을 터치하거나 클릭해 휴식 모드를 해제했습니다."
                 );
               }}
               onCenterLong={() => {
@@ -2761,7 +2804,7 @@ export default function Home() {
             <p className="text-sm font-semibold text-blue-600">GLIM-AAC DEMO</p>
             <h1 className="mt-1 text-2xl font-bold sm:text-3xl">{pageTitle}</h1>
             <p className="mt-2 text-sm text-slate-500">
-              PC에서는 방향키 + Space로, 모바일에서는 원하는 버튼을 터치해 선택합니다. 화면 회전 시 버튼 크기도 자동 조절됩니다.
+              방향키를 누른 뒤 Space를 누르면 선택됩니다. 대각선은 두 방향키를 순서대로 입력합니다.
             </p>
           </div>
           <HomeButton onClick={goHome} />
@@ -2818,7 +2861,7 @@ export default function Home() {
         `}</style>
 
         <footer className="mt-5 text-center text-sm text-slate-500">
-          Gemini 추천 연결 · PC 클릭/키보드 · 모바일 터치 지원 · 가로/세로 화면 자동 대응
+          Gemini 추천 연결 · 외곽 버튼 클릭 가능 · 정면 Long blink는 휴식 전환 · Enter는 Converge
         </footer>
       </div>
     </main>
