@@ -111,8 +111,28 @@ function matchesStructuredPrefix(sentence: string, segments: InputSegment[]): bo
   for (const segment of segments) {
     if (segment.type === "literal") {
       const literalChars = Array.from(segment.text);
+
+      // 앞의 초성 구간이 실제 단어/음절로 확장되면 그 다음 직접 입력 구간과
+      // 자연스럽게 띄어쓰기가 생길 수 있습니다. 사용자가 직접 공백을 입력한
+      // 경우는 그대로 존중하고, 그렇지 않은 경우에만 구간 사이 구분자를 허용합니다.
+      if (literalChars.length > 0 && !isSeparator(literalChars[0])) {
+        while (index < chars.length && isSeparator(chars[index])) index += 1;
+      }
+
       for (const expected of literalChars) {
-        if (index >= chars.length || chars[index] !== expected) return false;
+        if (index >= chars.length) return false;
+
+        const actual = chars[index];
+        const bothEnglishLetters = /[A-Za-z]/.test(expected) && /[A-Za-z]/.test(actual);
+
+        // 영어 직접 입력은 UI 특성상 대문자로 입력되더라도 자연스러운 문장에서는
+        // John처럼 정상적인 대소문자로 표현될 수 있습니다. 철자 자체는 보존합니다.
+        if (bothEnglishLetters) {
+          if (actual.toUpperCase() !== expected.toUpperCase()) return false;
+        } else if (actual !== expected) {
+          return false;
+        }
+
         index += 1;
       }
       continue;
@@ -275,11 +295,11 @@ export async function POST(request: Request) {
 ${describeSegments(segments)}
 
 입력 해석 규칙:
-- [직접 입력] 구간은 사용자가 글자를 직접 철자한 부분입니다. 한 글자도 바꾸지 말고 문장 앞부분에서 정확히 유지하세요.
-- [직접 입력 · 고유명사]로 표시된 영문 구간은 사용자가 직접 철자한 사람 이름, 장소명, 제품명 등 고유명사입니다. 절대로 영어 초성으로 해석하지 말고, 철자와 대소문자를 그대로 보존하세요.
+- [직접 입력] 구간은 사용자가 글자를 직접 철자한 부분입니다. 한 글자도 바꾸지 말고, 앞뒤의 다른 구간이 확장된 뒤에도 해당 위치에서 그대로 유지하세요.
+- [직접 입력 · 고유명사]로 표시된 영문 구간은 사용자가 직접 철자한 사람 이름, 장소명, 제품명 등 고유명사입니다. 절대로 영어 초성으로 해석하지 말고, 철자는 그대로 보존하세요. 다만 UI에서 영문을 대문자로 입력했더라도 최종 문장에서는 John처럼 자연스러운 대소문자로 정규화할 수 있습니다. 앞의 초성 구간과 이 고유명사 사이에는 자연스러운 공백이나 문장부호를 넣어도 됩니다.
 - [한글 음절 초성] 구간의 자음 하나는 한글 완성 음절 하나의 초성입니다. 어절 초성이 아니라 모든 한글 음절의 초성입니다.
 - [영어 단어 초성] 구간의 알파벳 하나는 영어 단어 하나의 첫 글자입니다. 예: IWW → "I want water."처럼 해석합니다.
-- 각 구간의 순서는 반드시 그대로 유지하세요.
+- 각 구간의 순서는 반드시 그대로 유지하세요. 예: [영어 단어 초성] "IW" 다음에 [직접 입력 · 고유명사] "John"이 오면 "I want John..."처럼 확장할 수 있습니다.
 - 사용자가 입력한 구간은 문장 전체가 아니라 앞부분만 지정한 것일 수 있습니다. 조건을 모두 만족한 뒤에는 자연스럽게 문장을 더 이어도 됩니다.
 - 영어 단어 초성 사이에는 실제 완성 문장에서 공백과 일반적인 문장부호가 들어갑니다.
 
