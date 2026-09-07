@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from "react";
 
 type Screen =
@@ -15,8 +16,12 @@ type Screen =
   | "category"
   | "free-input";
 
-type InputMode = "initial" | "direct";
+type InputMode = "initial" | "direct" | "english-initial";
 type InitialStage = "groups" | "letters" | "suggestions";
+type EnglishInitialStage = "groups" | "group4-subgroups" | "letters" | "suggestions";
+
+type InputSegmentType = "literal" | "ko-initial" | "en-initial";
+type InputSegment = { type: InputSegmentType; text: string };
 
 type DirectStage =
   | "root"
@@ -334,6 +339,54 @@ const DIRECTION_KEY_LABEL: Record<Direction, string> = {
 
 
 
+function appendInputSegment(segments: InputSegment[], type: InputSegmentType, text: string): InputSegment[] {
+  if (!text) return segments;
+  const next = [...segments];
+  const last = next[next.length - 1];
+  if (last && last.type === type) {
+    next[next.length - 1] = { ...last, text: last.text + text };
+  } else {
+    next.push({ type, text });
+  }
+  return next;
+}
+
+function deleteLastInputSegmentCharacter(segments: InputSegment[]): InputSegment[] {
+  if (segments.length === 0) return segments;
+  const next = [...segments];
+  const last = next[next.length - 1];
+  const chars = Array.from(last.text);
+  chars.pop();
+  if (chars.length === 0) next.pop();
+  else next[next.length - 1] = { ...last, text: chars.join("") };
+  return next;
+}
+
+function renderLiteralSegment(text: string): ReactNode {
+  const parts = text.split(/([A-Za-z][A-Za-z0-9'’.-]*)/g);
+  return parts.map((part, index) =>
+    /^[A-Za-z][A-Za-z0-9'’.-]*$/.test(part) ? (
+      <span key={index} className="underline decoration-2 underline-offset-4">{part}</span>
+    ) : (
+      <span key={index}>{part}</span>
+    )
+  );
+}
+
+function renderInputSegments(segments: InputSegment[]): ReactNode {
+  return segments.map((segment, index) => (
+    <span key={`${segment.type}-${index}`}>
+      {segment.type === "literal" ? renderLiteralSegment(segment.text) : segment.text}
+    </span>
+  ));
+}
+
+function getSpeechLanguage(text: string): "ko-KR" | "en-US" {
+  const hangul = (text.match(/[가-힣ㄱ-ㅎㅏ-ㅣ]/g) ?? []).length;
+  const english = (text.match(/[A-Za-z]/g) ?? []).length;
+  return english > hangul ? "en-US" : "ko-KR";
+}
+
 function composeSyllable(syllable: SyllableState): string {
   if (!syllable.initial && !syllable.vowel && !syllable.final) {
     return "";
@@ -409,7 +462,7 @@ function RadialPad({
   activeDirection: Direction | null;
   isResting: boolean;
   isBlinkPressed: boolean;
-  centerText: string;
+  centerText: ReactNode;
   onCenter: () => void;
   onCenterLong?: () => void;
   centerTitle?: string;
@@ -741,7 +794,7 @@ function RadialPad({
 export default function Home() {
   const [screen, setScreen] = useState<Screen>("home");
   const [inputMode, setInputMode] = useState<InputMode>("initial");
-  const [committedInputText, setCommittedInputText] = useState("");
+  const [committedInputSegments, setCommittedInputSegments] = useState<InputSegment[]>([]);
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
   const [selectedSentence, setSelectedSentence] = useState("");
   const [recommendedSentences, setRecommendedSentences] = useState<string[]>([]);
@@ -754,6 +807,12 @@ export default function Home() {
   const [selectedInitialGroup, setSelectedInitialGroup] =
     useState<InitialGroup | null>(null);
   const [initialInput, setInitialInput] = useState("");
+
+  const [englishInitialStage, setEnglishInitialStage] = useState<EnglishInitialStage>("groups");
+  const [englishInitialInput, setEnglishInitialInput] = useState("");
+  const [selectedEnglishInitialGroup, setSelectedEnglishInitialGroup] = useState<EnglishGroup | null>(null);
+  const [selectedEnglishInitialGroup4Subgroup, setSelectedEnglishInitialGroup4Subgroup] = useState<EnglishGroup4Subgroup | null>(null);
+  const [englishInitialPage, setEnglishInitialPage] = useState(0);
 
   const [directStage, setDirectStage] = useState<DirectStage>("root");
   const [selectedDirectInitialGroup, setSelectedDirectInitialGroup] =
@@ -791,9 +850,31 @@ export default function Home() {
   );
 
   const directOutput = directText + composeSyllable(syllable);
+  const committedInputText = useMemo(
+    () => committedInputSegments.map((segment) => segment.text).join(""),
+    [committedInputSegments]
+  );
+
+  const currentInputSegments = useMemo(() => {
+    if (inputMode === "initial" && initialInput) {
+      return appendInputSegment(committedInputSegments, "ko-initial", initialInput);
+    }
+    if (inputMode === "english-initial" && englishInitialInput) {
+      return appendInputSegment(committedInputSegments, "en-initial", englishInitialInput);
+    }
+    if (inputMode === "direct" && directOutput) {
+      return appendInputSegment(committedInputSegments, "literal", directOutput);
+    }
+    return committedInputSegments;
+  }, [committedInputSegments, directOutput, englishInitialInput, initialInput, inputMode]);
+
   const currentInputText =
     committedInputText +
-    (inputMode === "initial" ? initialInput : directOutput);
+    (inputMode === "initial"
+      ? initialInput
+      : inputMode === "english-initial"
+        ? englishInitialInput
+        : directOutput);
 
   const initialFallbackSuggestions = useMemo(() => {
     const matched = INITIAL_SENTENCE_MAP[currentInputText];
@@ -856,7 +937,7 @@ export default function Home() {
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "ko-KR";
+    utterance.lang = getSpeechLanguage(text);
     utterance.rate = 0.9;
 
     window.speechSynthesis.speak(utterance);
@@ -873,7 +954,7 @@ export default function Home() {
     }
 
     if (screen === "free-input" && inputMode === "initial") {
-      setCommittedInputText("");
+      setCommittedInputSegments([]);
       setInitialInput("");
       setInitialStage("groups");
       setSelectedInitialGroup(null);
@@ -882,8 +963,21 @@ export default function Home() {
       return;
     }
 
+    if (screen === "free-input" && inputMode === "english-initial") {
+      setCommittedInputSegments([]);
+      setInitialInput("");
+      setEnglishInitialInput("");
+      setEnglishInitialStage("groups");
+      setSelectedEnglishInitialGroup(null);
+      setSelectedEnglishInitialGroup4Subgroup(null);
+      setEnglishInitialPage(0);
+      setDirectText("");
+      setSyllable(EMPTY_SYLLABLE);
+      return;
+    }
+
     if (screen === "free-input" && inputMode === "direct") {
-      setCommittedInputText("");
+      setCommittedInputSegments([]);
       setInitialInput("");
       setDirectText("");
       setSyllable(EMPTY_SYLLABLE);
@@ -938,7 +1032,7 @@ export default function Home() {
     };
 
     const utterance = new SpeechSynthesisUtterance(trimmed);
-    utterance.lang = "ko-KR";
+    utterance.lang = getSpeechLanguage(trimmed);
     utterance.rate = 0.9;
     utterance.onend = completeAfterMinimumDuration;
     utterance.onerror = completeAfterMinimumDuration;
@@ -967,7 +1061,7 @@ export default function Home() {
   };
 
   const resetAllInput = () => {
-    setCommittedInputText("");
+    setCommittedInputSegments([]);
     setSelectedSentence("");
     setRecommendedSentences([]);
     setRecommendationError("");
@@ -975,6 +1069,11 @@ export default function Home() {
     setInitialInput("");
     setInitialStage("groups");
     setSelectedInitialGroup(null);
+    setEnglishInitialInput("");
+    setEnglishInitialStage("groups");
+    setSelectedEnglishInitialGroup(null);
+    setSelectedEnglishInitialGroup4Subgroup(null);
+    setEnglishInitialPage(0);
 
     setDirectText("");
     setSyllable(EMPTY_SYLLABLE);
@@ -1007,35 +1106,78 @@ export default function Home() {
   };
 
   const switchToDirectInput = () => {
-    if (initialInput) {
-      setCommittedInputText((previous) => previous + initialInput);
+    if (inputMode === "initial" && initialInput) {
+      setCommittedInputSegments((previous) => appendInputSegment(previous, "ko-initial", initialInput));
+    }
+    if (inputMode === "english-initial" && englishInitialInput) {
+      setCommittedInputSegments((previous) => appendInputSegment(previous, "en-initial", englishInitialInput));
     }
 
     setInitialInput("");
+    setEnglishInitialInput("");
     setSelectedInitialGroup(null);
     setInitialStage("groups");
+    setEnglishInitialStage("groups");
+    setSelectedEnglishInitialGroup(null);
+    setSelectedEnglishInitialGroup4Subgroup(null);
+    setEnglishInitialPage(0);
     setInputMode("direct");
     setDirectStage("root");
     setSelectedSentence("");
   };
 
   const switchToInitialInput = () => {
-    if (directOutput) {
-      setCommittedInputText((previous) => previous + directOutput);
+    if (inputMode === "direct" && directOutput) {
+      setCommittedInputSegments((previous) => appendInputSegment(previous, "literal", directOutput));
+    }
+    if (inputMode === "english-initial" && englishInitialInput) {
+      setCommittedInputSegments((previous) => appendInputSegment(previous, "en-initial", englishInitialInput));
     }
 
     setDirectText("");
     setSyllable(EMPTY_SYLLABLE);
+    setEnglishInitialInput("");
     setSelectedDirectInitialGroup(null);
     setSelectedVowelGroup(null);
     setSelectedFinalGroup(null);
     setSelectedEnglishGroup(null);
     setSelectedEnglishGroup4Subgroup(null);
+    setSelectedEnglishInitialGroup(null);
+    setSelectedEnglishInitialGroup4Subgroup(null);
     setVowelPage(0);
     setFinalPage(0);
     setEnglishPage(0);
+    setEnglishInitialPage(0);
     setInputMode("initial");
     setInitialStage("groups");
+    setSelectedSentence("");
+  };
+
+  const switchToEnglishInitialInput = () => {
+    if (inputMode === "direct" && directOutput) {
+      setCommittedInputSegments((previous) => appendInputSegment(previous, "literal", directOutput));
+    }
+    if (inputMode === "initial" && initialInput) {
+      setCommittedInputSegments((previous) => appendInputSegment(previous, "ko-initial", initialInput));
+    }
+
+    setDirectText("");
+    setSyllable(EMPTY_SYLLABLE);
+    setInitialInput("");
+    setSelectedDirectInitialGroup(null);
+    setSelectedVowelGroup(null);
+    setSelectedFinalGroup(null);
+    setSelectedEnglishGroup(null);
+    setSelectedEnglishGroup4Subgroup(null);
+    setSelectedInitialGroup(null);
+    setVowelPage(0);
+    setFinalPage(0);
+    setEnglishPage(0);
+    setInputMode("english-initial");
+    setEnglishInitialStage("groups");
+    setSelectedEnglishInitialGroup(null);
+    setSelectedEnglishInitialGroup4Subgroup(null);
+    setEnglishInitialPage(0);
     setSelectedSentence("");
   };
 
@@ -1120,12 +1262,13 @@ export default function Home() {
       return;
     }
 
-    setCommittedInputText((previous) => previous.slice(0, -1));
+    setCommittedInputSegments((previous) => deleteLastInputSegmentCharacter(previous));
   };
 
   const requestRecommendations = async (
     input: string,
-    mode: "initial" | "direct" | "mixed"
+    mode: "initial" | "direct" | "mixed",
+    segments: InputSegment[] = currentInputSegments
   ): Promise<string[]> => {
     const response = await fetch("/api/recommend", {
       method: "POST",
@@ -1135,6 +1278,7 @@ export default function Home() {
       body: JSON.stringify({
         input,
         mode,
+        segments,
       }),
     });
 
@@ -1192,7 +1336,7 @@ export default function Home() {
     setInitialStage("suggestions");
 
     try {
-      const suggestions = await requestRecommendations(input, "mixed");
+      const suggestions = await requestRecommendations(input, "mixed", currentInputSegments);
       setRecommendedSentences(suggestions);
     } catch (error) {
       setRecommendedSentences(initialFallbackSuggestions);
@@ -1224,7 +1368,7 @@ export default function Home() {
     setDirectStage("suggestions");
 
     try {
-      const suggestions = await requestRecommendations(input, "mixed");
+      const suggestions = await requestRecommendations(input, "mixed", currentInputSegments);
       setRecommendedSentences(suggestions);
     } catch (error) {
       setRecommendedSentences(directFallbackSuggestions);
@@ -1232,6 +1376,43 @@ export default function Home() {
         error instanceof Error
           ? `${error.message} 기본 추천 문장을 표시합니다.`
           : "Gemini 추천에 실패해 기본 추천 문장을 표시합니다."
+      );
+    } finally {
+      setIsRecommendationLoading(false);
+    }
+  };
+
+  const loadEnglishInitialRecommendations = async () => {
+    const input = currentInputText.trim();
+    if (!input) {
+      setRecommendationError("먼저 영어 초성을 한 글자 이상 입력해 주세요.");
+      setRecommendedSentences([]);
+      return;
+    }
+    if (isRecommendationLoading) return;
+
+    setSelectedSentence("");
+    setRecommendedSentences([]);
+    setRecommendationError("");
+    setIsRecommendationLoading(true);
+    setEnglishInitialStage("suggestions");
+
+    try {
+      const suggestions = await requestRecommendations(input, "mixed", currentInputSegments);
+      setRecommendedSentences(suggestions);
+    } catch (error) {
+      setRecommendedSentences([
+        "I want water.",
+        "I need help.",
+        "Please stay here.",
+        "I feel uncomfortable.",
+        "Can you help me?",
+        "Thank you for helping me.",
+      ]);
+      setRecommendationError(
+        error instanceof Error
+          ? `${error.message} 기본 영어 추천 문장을 표시합니다.`
+          : "Gemini 추천에 실패해 기본 영어 추천 문장을 표시합니다."
       );
     } finally {
       setIsRecommendationLoading(false);
@@ -1248,6 +1429,15 @@ export default function Home() {
     setSelectedSentence("");
     setSelectedInitialGroup(null);
     setInitialStage("groups");
+  };
+
+  const selectEnglishInitialLetter = (letter: string) => {
+    setEnglishInitialInput((previous) => previous + letter.toUpperCase());
+    setSelectedSentence("");
+    setSelectedEnglishInitialGroup(null);
+    setSelectedEnglishInitialGroup4Subgroup(null);
+    setEnglishInitialPage(0);
+    setEnglishInitialStage("groups");
   };
 
   const selectDirectInitialLetter = (letter: string, longBlink: boolean) => {
@@ -1471,7 +1661,7 @@ export default function Home() {
             if (initialInput) {
               setInitialInput((previous) => previous.slice(0, -1));
             } else {
-              setCommittedInputText((previous) => previous.slice(0, -1));
+              setCommittedInputSegments((previous) => deleteLastInputSegmentCharacter(previous));
             }
             setSelectedSentence("");
           },
@@ -1525,7 +1715,7 @@ export default function Home() {
             if (initialInput) {
               setInitialInput((previous) => previous.slice(0, -1));
             } else {
-              setCommittedInputText((previous) => previous.slice(0, -1));
+              setCommittedInputSegments((previous) => deleteLastInputSegmentCharacter(previous));
             }
           },
         },
@@ -1621,6 +1811,137 @@ export default function Home() {
     }
   }
 
+  if (screen === "free-input" && inputMode === "english-initial") {
+    if (englishInitialStage === "groups") {
+      const groups = Object.keys(ENGLISH_GROUP_MAP) as EnglishGroup[];
+      radialItems = groups.map((group, index) => ({
+        direction: INPUT_DIRECTION_ORDER[index],
+        label: group,
+        helper: ENGLISH_GROUP_MAP[group].join(" · "),
+        action: () => {
+          setSelectedEnglishInitialGroup(group);
+          setSelectedEnglishInitialGroup4Subgroup(null);
+          setEnglishInitialPage(0);
+          setEnglishInitialStage(group === "Group4" ? "group4-subgroups" : "letters");
+        },
+      }));
+
+      radialItems.push(
+        {
+          direction: "e", label: "지우기", longAction: clearCurrentWorkZone, helper: "영어 초성 한 글자 삭제",
+          action: () => {
+            if (englishInitialInput) setEnglishInitialInput((previous) => previous.slice(0, -1));
+            else setCommittedInputSegments((previous) => deleteLastInputSegmentCharacter(previous));
+            setSelectedSentence("");
+          },
+        },
+        { direction: "sw", label: "완전 자유 입력", helper: "고유명사를 직접 입력", action: switchToDirectInput },
+        { direction: "s", label: "문장 추천", helper: "영어 초성으로 문장 완성", action: () => void loadEnglishInitialRecommendations(), tone: "primary" },
+        { direction: "se", label: "한글 초성 모드", helper: "현재 입력을 유지하고 전환", action: switchToInitialInput }
+      );
+    }
+
+    if (englishInitialStage === "group4-subgroups") {
+      const subgroups = Object.keys(ENGLISH_GROUP4_SUBGROUP_MAP) as EnglishGroup4Subgroup[];
+      radialItems = subgroups.map((subgroup, index) => ({
+        direction: INPUT_DIRECTION_ORDER[index],
+        label: subgroup,
+        helper: "Group4 하위 그룹",
+        action: () => {
+          setSelectedEnglishInitialGroup("Group4");
+          setSelectedEnglishInitialGroup4Subgroup(subgroup);
+          setEnglishInitialPage(0);
+          setEnglishInitialStage("letters");
+        },
+      }));
+      radialItems.push(
+        { direction: "e", label: "지우기", longAction: clearCurrentWorkZone, helper: "영어 초성 한 글자 삭제", action: () => {
+            if (englishInitialInput) setEnglishInitialInput((previous) => previous.slice(0, -1));
+            else setCommittedInputSegments((previous) => deleteLastInputSegmentCharacter(previous));
+          } },
+        { direction: "sw", label: "그룹으로", helper: "ESCG 그룹 선택", action: () => {
+            setSelectedEnglishInitialGroup(null);
+            setSelectedEnglishInitialGroup4Subgroup(null);
+            setEnglishInitialStage("groups");
+          } },
+        { direction: "s", label: "문장 추천", helper: "영어 초성으로 문장 완성", action: () => void loadEnglishInitialRecommendations() },
+        { direction: "se", label: "완전 자유 입력", helper: "고유명사를 직접 입력", action: switchToDirectInput }
+      );
+    }
+
+    if (englishInitialStage === "letters" && selectedEnglishInitialGroup) {
+      const letters = selectedEnglishInitialGroup === "Group4" && selectedEnglishInitialGroup4Subgroup
+        ? ENGLISH_GROUP4_SUBGROUP_MAP[selectedEnglishInitialGroup4Subgroup]
+        : ENGLISH_GROUP_MAP[selectedEnglishInitialGroup];
+      const pageSize = 4;
+      const pageStart = englishInitialPage * pageSize;
+      const pageLetters = letters.slice(pageStart, pageStart + pageSize);
+      const hasNext = pageStart + pageSize < letters.length;
+
+      radialItems = pageLetters.map((letter, index) => ({
+        direction: INPUT_DIRECTION_ORDER[index],
+        label: letter,
+        helper: "단어의 첫 글자",
+        action: () => selectEnglishInitialLetter(letter),
+      }));
+      radialItems.push(
+        { direction: "e", label: "지우기", longAction: clearCurrentWorkZone, helper: "영어 초성 한 글자 삭제", action: () => {
+            if (englishInitialInput) setEnglishInitialInput((previous) => previous.slice(0, -1));
+            else setCommittedInputSegments((previous) => deleteLastInputSegmentCharacter(previous));
+          } },
+        { direction: "sw", label: englishInitialPage > 0 ? "이전" : "그룹으로", helper: englishInitialPage > 0 ? "이전 알파벳" : "ESCG 그룹 선택", action: () => {
+            if (englishInitialPage > 0) setEnglishInitialPage((previous) => Math.max(previous - 1, 0));
+            else if (selectedEnglishInitialGroup === "Group4") {
+              setSelectedEnglishInitialGroup4Subgroup(null);
+              setEnglishInitialStage("group4-subgroups");
+            } else {
+              setSelectedEnglishInitialGroup(null);
+              setEnglishInitialStage("groups");
+            }
+          } },
+        { direction: "s", label: hasNext ? "다음" : "문장 추천", helper: hasNext ? "다음 알파벳" : "영어 문장 완성", action: () => {
+            if (hasNext) setEnglishInitialPage((previous) => previous + 1);
+            else void loadEnglishInitialRecommendations();
+          } },
+        { direction: "se", label: "완전 자유 입력", helper: "고유명사를 직접 입력", action: switchToDirectInput }
+      );
+    }
+
+    if (englishInitialStage === "suggestions") {
+      const englishFallback = [
+        "I want water.", "I need help.", "Please stay here.",
+        "I feel uncomfortable.", "Can you help me?", "Thank you for helping me."
+      ];
+      const suggestionsToShow = recommendedSentences.length === 6 ? recommendedSentences : englishFallback;
+      radialItems = isRecommendationLoading ? [] : suggestionsToShow.map((sentence, index) => ({
+        direction: SIX_DIRECTION_ORDER[index],
+        label: sentence,
+        helper: selectedSentence === sentence ? "선택됨 · 다시 선택하면 말하기" : "추천 문장",
+        action: () => {
+          if (selectedSentence === sentence) speak(sentence);
+          else setSelectedSentence(sentence);
+        },
+        longAction: () => speak(sentence),
+        tone: selectedSentence === sentence ? "primary" : "normal",
+      }));
+      radialItems.push(
+        { direction: "s", label: "영어 초성 입력", helper: "입력 화면으로", action: () => {
+            setSelectedSentence("");
+            setRecommendedSentences([]);
+            setRecommendationError("");
+            setEnglishInitialStage("groups");
+          } },
+        { direction: "se", label: isRecommendationLoading ? "생성 중..." : selectedSentence ? "말하기" : "추천 새로고침",
+          helper: isRecommendationLoading ? "Gemini 응답 대기" : selectedSentence ? "Enter · Converge" : "새 문장 6개 생성",
+          action: () => {
+            if (isRecommendationLoading) return;
+            if (selectedSentence) speak(selectedSentence);
+            else void loadEnglishInitialRecommendations();
+          }, tone: selectedSentence ? "primary" : "normal" }
+      );
+    }
+  }
+
   if (screen === "free-input" && inputMode === "direct") {
     if (directStage === "root") {
       const hasInitial = Boolean(syllable.initial);
@@ -1637,9 +1958,16 @@ export default function Home() {
           },
           {
             direction: "ne",
-            label: "English",
-            helper: "ESCG 그룹 입력",
+            label: "English 자유 입력",
+            helper: "고유명사 · ESCG 그룹 입력",
             action: () => setDirectStage("english-groups"),
+          },
+          {
+            direction: "w",
+            label: "영어 초성 모드",
+            helper: "단어 첫 글자 · ESCG 그룹",
+            action: switchToEnglishInitialInput,
+            tone: "primary",
           },
           {
             direction: "e",
@@ -2572,7 +2900,7 @@ export default function Home() {
 
   useEffect(() => {
     clearDirectionSequence();
-  }, [screen, initialStage, directStage, inputMode]);
+  }, [screen, initialStage, englishInitialStage, directStage, inputMode]);
 
   const statusBox = (
     <div className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm">
@@ -2841,9 +3169,11 @@ export default function Home() {
         ? activeCategory?.title || "카테고리"
         : inputMode === "initial"
           ? "초성 입력 모드"
-          : "완전 자유 입력 모드";
+          : inputMode === "english-initial"
+            ? "영어 초성 입력 모드"
+            : "완전 자유 입력 모드";
 
-  let workZoneText = "";
+  let workZoneText: ReactNode = "";
 
   if (screen === "category-menu") {
     workZoneText = "원하는 표현의 종류를 선택하세요.";
@@ -2853,13 +3183,16 @@ export default function Home() {
     workZoneText = "Gemini가 추천 문장을 만들고 있습니다...";
   } else if (recommendationError && !selectedSentence) {
     workZoneText = recommendationError;
+  } else if (selectedSentence) {
+    workZoneText = selectedSentence;
+  } else if (currentInputSegments.length > 0) {
+    workZoneText = renderInputSegments(currentInputSegments);
   } else if (inputMode === "initial") {
-    workZoneText =
-      selectedSentence ||
-      currentInputText ||
-      `초성을 입력하세요\n예: 물 주세요 → ㅁㅈㅅㅇ`;
+    workZoneText = `초성을 입력하세요\n예: 물 주세요 → ㅁㅈㅅㅇ`;
+  } else if (inputMode === "english-initial") {
+    workZoneText = `영어 초성을 입력하세요\n예: I want water → IWW`;
   } else {
-    workZoneText = selectedSentence || currentInputText || "자모를 입력하세요.";
+    workZoneText = "자모를 입력하세요.";
   }
 
   return (
