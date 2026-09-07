@@ -419,19 +419,47 @@ function RadialPad({
   speechAnimationKey?: number;
 }) {
   const pointerStartRef = useRef<Partial<Record<Direction, number>>>({});
+  const pointerLongReadyTimerRef = useRef<
+    Partial<Record<Direction, ReturnType<typeof setTimeout>>>
+  >({});
   const suppressClickUntilRef = useRef<Partial<Record<Direction, number>>>({});
   const centerPointerStartRef = useRef<number | null>(null);
   const centerSuppressClickUntilRef = useRef(0);
   const [pointerDirection, setPointerDirection] = useState<Direction | null>(null);
+  const [pointerLongReadyDirection, setPointerLongReadyDirection] =
+    useState<Direction | null>(null);
+  const [keyboardLongReadyDirection, setKeyboardLongReadyDirection] =
+    useState<Direction | null>(null);
+
+  const clearPointerLongReadyTimer = (direction: Direction) => {
+    const timer = pointerLongReadyTimerRef.current[direction];
+
+    if (timer !== undefined) {
+      clearTimeout(timer);
+      delete pointerLongReadyTimerRef.current[direction];
+    }
+  };
 
   const handlePointerDown = (
     event: ReactPointerEvent<HTMLButtonElement>,
-    direction: Direction
+    item: RadialItem
   ) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
 
+    const direction = item.direction;
     pointerStartRef.current[direction] = Date.now();
     setPointerDirection(direction);
+    setPointerLongReadyDirection(null);
+    clearPointerLongReadyTimer(direction);
+
+    // 지우기 버튼을 1.5초 이상 누르면 즉시 실행하지 않고,
+    // "놓으면 전체 삭제" 준비 상태만 빨간색으로 표시합니다.
+    if (item.label === "지우기" && item.longAction) {
+      pointerLongReadyTimerRef.current[direction] = setTimeout(() => {
+        delete pointerLongReadyTimerRef.current[direction];
+        setPointerLongReadyDirection(direction);
+      }, 1500);
+    }
   };
 
   const finishPointerPress = (
@@ -442,15 +470,17 @@ function RadialPad({
 
     const startedAt = pointerStartRef.current[item.direction];
     delete pointerStartRef.current[item.direction];
+    clearPointerLongReadyTimer(item.direction);
     setPointerDirection(null);
+    setPointerLongReadyDirection(null);
 
     if (startedAt === undefined || isResting) return;
 
     const duration = Date.now() - startedAt;
 
     // 짧은 탭은 브라우저의 표준 click 이벤트에서 처리합니다.
-    // 이렇게 하면 iOS/Android/PC 모두 같은 방식으로 동작합니다.
-    // 1.5초 이상 길게 누르기만 여기서 별도로 처리합니다.
+    // 1.5초 이상 누른 경우에는 누르고 있는 동안 빨간색 준비 상태가 보이고,
+    // 손가락/마우스를 떼는 순간 longAction이 실행됩니다.
     if (duration >= 1500 && item.longAction) {
       suppressClickUntilRef.current[item.direction] = Date.now() + 1000;
       item.longAction();
@@ -459,8 +489,42 @@ function RadialPad({
 
   const cancelPointerPress = (direction: Direction) => {
     delete pointerStartRef.current[direction];
+    clearPointerLongReadyTimer(direction);
     setPointerDirection(null);
+    setPointerLongReadyDirection(null);
   };
+
+  const activeKeyboardItem = activeDirection
+    ? items.find((candidate) => candidate.direction === activeDirection)
+    : undefined;
+  const keyboardCanPrepareClear =
+    activeKeyboardItem?.label === "지우기" && Boolean(activeKeyboardItem.longAction);
+
+  useEffect(() => {
+    if (
+      !activeDirection ||
+      !isBlinkPressed ||
+      isResting ||
+      !keyboardCanPrepareClear
+    ) {
+      setKeyboardLongReadyDirection(null);
+      return;
+    }
+
+    const direction = activeDirection;
+    const timer = setTimeout(() => {
+      setKeyboardLongReadyDirection(direction);
+    }, 1500);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [
+    activeDirection,
+    isBlinkPressed,
+    isResting,
+    keyboardCanPrepareClear,
+  ]);
 
   const renderDirectionalSlot = (
     direction: Direction,
@@ -481,6 +545,9 @@ function RadialPad({
     const isPointerActive = pointerDirection === direction;
     const isActive = isKeyboardActive || isPointerActive;
     const isConfirming = isKeyboardActive && isBlinkPressed;
+    const isClearReady =
+      pointerLongReadyDirection === direction ||
+      keyboardLongReadyDirection === direction;
 
     const normalClass =
       item.tone === "primary"
@@ -500,7 +567,7 @@ function RadialPad({
           item.action();
         }}
         onPointerDown={(event: ReactPointerEvent<HTMLButtonElement>) =>
-          handlePointerDown(event, item.direction)
+          handlePointerDown(event, item)
         }
         onPointerUp={(event: ReactPointerEvent<HTMLButtonElement>) =>
           finishPointerPress(event, item)
@@ -509,11 +576,13 @@ function RadialPad({
         onContextMenu={(event) => event.preventDefault()}
         className={
           `flex ${sizeClass} min-w-0 touch-manipulation select-none flex-col items-center justify-center rounded-2xl border-2 p-1.5 text-center transition sm:p-2.5 disabled:cursor-not-allowed disabled:opacity-30 ` +
-          (isActive && !isResting
-            ? isConfirming || isPointerActive
-              ? "scale-110 border-blue-700 bg-blue-700 text-white shadow-xl"
-              : "scale-105 border-blue-600 bg-blue-600 text-white shadow-lg"
-            : normalClass)
+          (isClearReady && !isResting
+            ? "scale-110 border-red-700 bg-red-600 text-white shadow-xl"
+            : isActive && !isResting
+              ? isConfirming || isPointerActive
+                ? "scale-110 border-blue-700 bg-blue-700 text-white shadow-xl"
+                : "scale-105 border-blue-600 bg-blue-600 text-white shadow-lg"
+              : normalClass)
         }
       >
         <span className="break-words text-[clamp(0.82rem,3.6vw,1.125rem)] font-bold leading-tight">
@@ -524,11 +593,13 @@ function RadialPad({
           <span
             className={
               "mt-1 break-words text-[clamp(0.62rem,2.5vw,0.75rem)] leading-tight sm:mt-1.5 " +
-              (isActive
-                ? "text-blue-100"
-                : item.tone === "primary"
+              (isClearReady
+                ? "text-red-100"
+                : isActive
                   ? "text-blue-100"
-                  : "text-slate-500")
+                  : item.tone === "primary"
+                    ? "text-blue-100"
+                    : "text-slate-500")
             }
           >
             {item.helper}
