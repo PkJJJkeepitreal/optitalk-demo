@@ -1274,7 +1274,10 @@ export default function Home() {
     setSyllable(EMPTY_SYLLABLE);
     setSelectedSentence("");
     setSelectedDirectInitialGroup(null);
-    setDirectStage("root");
+
+    // 받침 없이 다음 글자로 넘어갈 때는 English 선택 화면을 거치지 않고
+    // 곧바로 다음 한글 글자의 초성 그룹 선택 화면으로 이동합니다.
+    setDirectStage("initial-groups");
   };
 
   const commitFinalAndReturnToStart = (letter: string) => {
