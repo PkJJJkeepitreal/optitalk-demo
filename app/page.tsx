@@ -1391,6 +1391,7 @@ export default function Home() {
         {
           direction: "e",
           label: "지우기",
+          longAction: clearCurrentWorkZone,
           helper: "초성 한 글자 삭제",
           action: () => {
             if (initialInput) {
@@ -1444,6 +1445,7 @@ export default function Home() {
         {
           direction: "e",
           label: "지우기",
+          longAction: clearCurrentWorkZone,
           helper: "초성 한 글자 삭제",
           action: () => {
             if (initialInput) {
@@ -1568,6 +1570,7 @@ export default function Home() {
           {
             direction: "e",
             label: "지우기",
+            longAction: clearCurrentWorkZone,
             helper: "마지막 글자 삭제",
             action: deleteDirectCharacter,
           },
@@ -1606,6 +1609,7 @@ export default function Home() {
           {
             direction: "e",
             label: "지우기",
+            longAction: clearCurrentWorkZone,
             helper: "입력한 초성 삭제",
             action: deleteDirectCharacter,
           },
@@ -1649,6 +1653,7 @@ export default function Home() {
           {
             direction: "e",
             label: "지우기",
+            longAction: clearCurrentWorkZone,
             helper: "입력한 모음 삭제",
             action: deleteDirectCharacter,
           },
@@ -1694,6 +1699,7 @@ export default function Home() {
         {
           direction: "e",
           label: "지우기",
+          longAction: clearCurrentWorkZone,
           helper: "마지막 자모 삭제",
           action: deleteDirectCharacter,
         },
@@ -1739,6 +1745,7 @@ export default function Home() {
         {
           direction: "e",
           label: "지우기",
+          longAction: clearCurrentWorkZone,
           helper: "마지막 자모 삭제",
           action: deleteDirectCharacter,
         },
@@ -1786,6 +1793,7 @@ export default function Home() {
         {
           direction: "e",
           label: "지우기",
+          longAction: clearCurrentWorkZone,
           helper: "마지막 자모 삭제",
           action: deleteDirectCharacter,
         },
@@ -1835,6 +1843,7 @@ export default function Home() {
         {
           direction: "e",
           label: "지우기",
+          longAction: clearCurrentWorkZone,
           helper: "마지막 자모 삭제",
           action: deleteDirectCharacter,
         },
@@ -1893,6 +1902,7 @@ export default function Home() {
         {
           direction: "e",
           label: "지우기",
+          longAction: clearCurrentWorkZone,
           helper: "마지막 자모 삭제",
           action: deleteDirectCharacter,
         },
@@ -1941,6 +1951,7 @@ export default function Home() {
         {
           direction: "e",
           label: "지우기",
+          longAction: clearCurrentWorkZone,
           helper: "마지막 자모 삭제",
           action: deleteDirectCharacter,
         },
@@ -2007,6 +2018,7 @@ export default function Home() {
         {
           direction: "e",
           label: "지우기",
+          longAction: clearCurrentWorkZone,
           helper: "마지막 글자 삭제",
           action: deleteDirectCharacter,
         },
@@ -2054,6 +2066,7 @@ export default function Home() {
         {
           direction: "e",
           label: "지우기",
+          longAction: clearCurrentWorkZone,
           helper: "마지막 글자 삭제",
           action: deleteDirectCharacter,
         },
@@ -2109,6 +2122,7 @@ export default function Home() {
         {
           direction: "e",
           label: "지우기",
+          longAction: clearCurrentWorkZone,
           helper: "마지막 글자 삭제",
           action: deleteDirectCharacter,
         },
