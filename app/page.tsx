@@ -56,6 +56,23 @@ type RadialItem = {
   tone?: "normal" | "primary" | "danger";
 };
 
+type DynamicOverlayDirection = "n" | "e" | "s" | "w";
+
+type DynamicOverlayOption = {
+  direction: DynamicOverlayDirection;
+  label: string;
+  helper?: string;
+  action: () => void;
+  longAction?: () => void;
+};
+
+type DynamicOverlayConfig = {
+  anchorDirection: Direction;
+  title: string;
+  options: DynamicOverlayOption[];
+  onDismiss: () => void;
+};
+
 type SyllableState = {
   initial: string;
   vowel: string;
@@ -457,6 +474,9 @@ function RadialPad({
   isSpeaking = false,
   speakingDurationMs = 2600,
   speechAnimationKey = 0,
+  enableDwellSelection = false,
+  dwellMs = 1500,
+  dynamicOverlay = null,
 }: {
   items: RadialItem[];
   activeDirection: Direction | null;
@@ -470,6 +490,9 @@ function RadialPad({
   isSpeaking?: boolean;
   speakingDurationMs?: number;
   speechAnimationKey?: number;
+  enableDwellSelection?: boolean;
+  dwellMs?: number;
+  dynamicOverlay?: DynamicOverlayConfig | null;
 }) {
   const pointerStartRef = useRef<Partial<Record<Direction, number>>>({});
   const pointerLongReadyTimerRef = useRef<
@@ -483,6 +506,105 @@ function RadialPad({
     useState<Direction | null>(null);
   const [keyboardLongReadyDirection, setKeyboardLongReadyDirection] =
     useState<Direction | null>(null);
+
+  const hoverDwellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [hoverDwellDirection, setHoverDwellDirection] =
+    useState<Direction | null>(null);
+  const [hoverDwellKey, setHoverDwellKey] = useState(0);
+
+  const overlayPointerStartRef = useRef<
+    Partial<Record<DynamicOverlayDirection, number>>
+  >({});
+  const overlaySuppressClickUntilRef = useRef<
+    Partial<Record<DynamicOverlayDirection, number>>
+  >({});
+  const overlayHoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [overlayPressedDirection, setOverlayPressedDirection] =
+    useState<DynamicOverlayDirection | null>(null);
+  const [overlayHoverDirection, setOverlayHoverDirection] =
+    useState<DynamicOverlayDirection | null>(null);
+  const [overlayDwellKey, setOverlayDwellKey] = useState(0);
+
+  const clearHoverDwell = () => {
+    if (hoverDwellTimerRef.current !== null) {
+      clearTimeout(hoverDwellTimerRef.current);
+      hoverDwellTimerRef.current = null;
+    }
+    setHoverDwellDirection(null);
+  };
+
+  const clearOverlayHoverDwell = () => {
+    if (overlayHoverTimerRef.current !== null) {
+      clearTimeout(overlayHoverTimerRef.current);
+      overlayHoverTimerRef.current = null;
+    }
+    setOverlayHoverDirection(null);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hoverDwellTimerRef.current !== null) {
+        clearTimeout(hoverDwellTimerRef.current);
+      }
+      if (overlayHoverTimerRef.current !== null) {
+        clearTimeout(overlayHoverTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    clearHoverDwell();
+    clearOverlayHoverDwell();
+  }, [dynamicOverlay?.title, isResting]);
+
+  const startHoverDwell = (
+    event: ReactPointerEvent<HTMLButtonElement>,
+    item: RadialItem
+  ) => {
+    if (
+      !enableDwellSelection ||
+      dynamicOverlay ||
+      isResting ||
+      event.pointerType === "touch"
+    ) {
+      return;
+    }
+
+    clearHoverDwell();
+    setHoverDwellDirection(item.direction);
+    setHoverDwellKey((previous) => previous + 1);
+
+    hoverDwellTimerRef.current = setTimeout(() => {
+      hoverDwellTimerRef.current = null;
+      setHoverDwellDirection(null);
+      suppressClickUntilRef.current[item.direction] = Date.now() + 700;
+      item.action();
+    }, dwellMs);
+  };
+
+  const startOverlayHoverDwell = (
+    event: ReactPointerEvent<HTMLButtonElement>,
+    option: DynamicOverlayOption
+  ) => {
+    if (
+      !enableDwellSelection ||
+      isResting ||
+      event.pointerType === "touch"
+    ) {
+      return;
+    }
+
+    clearOverlayHoverDwell();
+    setOverlayHoverDirection(option.direction);
+    setOverlayDwellKey((previous) => previous + 1);
+
+    overlayHoverTimerRef.current = setTimeout(() => {
+      overlayHoverTimerRef.current = null;
+      setOverlayHoverDirection(null);
+      overlaySuppressClickUntilRef.current[option.direction] = Date.now() + 700;
+      option.action();
+    }, dwellMs);
+  };
 
   const clearPointerLongReadyTimer = (direction: Direction) => {
     const timer = pointerLongReadyTimerRef.current[direction];
@@ -499,14 +621,13 @@ function RadialPad({
   ) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
 
+    clearHoverDwell();
     const direction = item.direction;
     pointerStartRef.current[direction] = Date.now();
     setPointerDirection(direction);
     setPointerLongReadyDirection(null);
     clearPointerLongReadyTimer(direction);
 
-    // 지우기 버튼을 1.5초 이상 누르면 즉시 실행하지 않고,
-    // "놓으면 전체 삭제" 준비 상태만 빨간색으로 표시합니다.
     if (item.label === "지우기" && item.longAction) {
       pointerLongReadyTimerRef.current[direction] = setTimeout(() => {
         delete pointerLongReadyTimerRef.current[direction];
@@ -531,9 +652,6 @@ function RadialPad({
 
     const duration = Date.now() - startedAt;
 
-    // 짧은 탭은 브라우저의 표준 click 이벤트에서 처리합니다.
-    // 1.5초 이상 누른 경우에는 누르고 있는 동안 빨간색 준비 상태가 보이고,
-    // 손가락/마우스를 떼는 순간 longAction이 실행됩니다.
     if (duration >= 1500 && item.longAction) {
       suppressClickUntilRef.current[item.direction] = Date.now() + 1000;
       item.longAction();
@@ -547,9 +665,10 @@ function RadialPad({
     setPointerLongReadyDirection(null);
   };
 
-  const activeKeyboardItem = activeDirection
-    ? items.find((candidate) => candidate.direction === activeDirection)
-    : undefined;
+  const activeKeyboardItem =
+    !dynamicOverlay && activeDirection
+      ? items.find((candidate) => candidate.direction === activeDirection)
+      : undefined;
   const keyboardCanPrepareClear =
     activeKeyboardItem?.label === "지우기" && Boolean(activeKeyboardItem.longAction);
 
@@ -579,6 +698,16 @@ function RadialPad({
     keyboardCanPrepareClear,
   ]);
 
+  const renderDwellProgress = (key: number) => (
+    <span className="pointer-events-none absolute inset-x-2 bottom-1 h-1 overflow-hidden rounded-full bg-blue-100/80">
+      <span
+        key={key}
+        className="block h-full origin-left bg-blue-600"
+        style={{ animation: `glimDwellProgress ${dwellMs}ms linear forwards` }}
+      />
+    </span>
+  );
+
   const renderDirectionalSlot = (
     direction: Direction,
     sizeClass: string
@@ -594,13 +723,20 @@ function RadialPad({
       );
     }
 
-    const isKeyboardActive = activeDirection === direction;
+    const isKeyboardActive = !dynamicOverlay && activeDirection === direction;
     const isPointerActive = pointerDirection === direction;
-    const isActive = isKeyboardActive || isPointerActive;
+    const isHoverDwell = hoverDwellDirection === direction;
+    const isActive = isKeyboardActive || isPointerActive || isHoverDwell;
     const isConfirming = isKeyboardActive && isBlinkPressed;
     const isClearReady =
       pointerLongReadyDirection === direction ||
       keyboardLongReadyDirection === direction;
+    const showKeyboardDwell =
+      enableDwellSelection &&
+      !dynamicOverlay &&
+      isKeyboardActive &&
+      !isBlinkPressed &&
+      !isResting;
 
     const normalClass =
       item.tone === "primary"
@@ -615,10 +751,13 @@ function RadialPad({
         type="button"
         disabled={isResting}
         onClick={() => {
+          clearHoverDwell();
           const suppressUntil = suppressClickUntilRef.current[item.direction] ?? 0;
           if (Date.now() < suppressUntil) return;
           item.action();
         }}
+        onPointerEnter={(event) => startHoverDwell(event, item)}
+        onPointerLeave={() => clearHoverDwell()}
         onPointerDown={(event: ReactPointerEvent<HTMLButtonElement>) =>
           handlePointerDown(event, item)
         }
@@ -628,7 +767,7 @@ function RadialPad({
         onPointerCancel={() => cancelPointerPress(item.direction)}
         onContextMenu={(event) => event.preventDefault()}
         className={
-          `flex ${sizeClass} min-w-0 touch-manipulation select-none flex-col items-center justify-center rounded-2xl border-2 p-1.5 text-center transition sm:p-2.5 disabled:cursor-not-allowed disabled:opacity-30 ` +
+          `relative flex ${sizeClass} min-w-0 touch-manipulation select-none flex-col items-center justify-center overflow-hidden rounded-2xl border-2 p-1.5 text-center transition sm:p-2.5 disabled:cursor-not-allowed disabled:opacity-30 ` +
           (isClearReady && !isResting
             ? "scale-110 border-red-700 bg-red-600 text-white shadow-xl"
             : isActive && !isResting
@@ -671,121 +810,260 @@ function RadialPad({
         >
           {DIRECTION_KEY_LABEL[direction]}
         </span>
+
+        {(isHoverDwell || showKeyboardDwell) &&
+          renderDwellProgress(
+            isHoverDwell ? hoverDwellKey : hoverDwellKey + 10000 + direction.charCodeAt(0)
+          )}
       </button>
+    );
+  };
+
+  const overlayAnchorClass: Record<Direction, string> = {
+    nw: "left-[20%] top-[18%]",
+    n: "left-1/2 top-[18%]",
+    ne: "left-[80%] top-[18%]",
+    w: "left-[18%] top-1/2",
+    e: "left-[82%] top-1/2",
+    sw: "left-[20%] top-[82%]",
+    s: "left-1/2 top-[82%]",
+    se: "left-[80%] top-[82%]",
+  };
+
+  const overlayOptionPosition: Record<DynamicOverlayDirection, string> = {
+    n: "left-1/2 top-0 -translate-x-1/2",
+    e: "right-0 top-1/2 -translate-y-1/2",
+    s: "bottom-0 left-1/2 -translate-x-1/2",
+    w: "left-0 top-1/2 -translate-y-1/2",
+  };
+
+  const renderDynamicOverlay = () => {
+    if (!dynamicOverlay) return null;
+
+    return (
+      <>
+        <button
+          type="button"
+          aria-label="펼쳐진 초성 그룹 닫기"
+          onClick={dynamicOverlay.onDismiss}
+          className="absolute inset-0 z-40 rounded-3xl bg-slate-900/10 backdrop-blur-[1px]"
+        />
+
+        <div
+          className={
+            `pointer-events-none absolute z-50 h-[11.5rem] w-[11.5rem] -translate-x-1/2 -translate-y-1/2 sm:h-[13rem] sm:w-[13rem] ${overlayAnchorClass[dynamicOverlay.anchorDirection]}`
+          }
+        >
+          <button
+            type="button"
+            onClick={dynamicOverlay.onDismiss}
+            className="pointer-events-auto absolute left-1/2 top-1/2 z-10 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 touch-manipulation items-center justify-center rounded-full border-2 border-blue-500 bg-slate-900 text-xs font-bold text-white shadow-xl sm:h-16 sm:w-16"
+          >
+            {dynamicOverlay.title}
+          </button>
+
+          {dynamicOverlay.options.map((option) => {
+            const isKeyboardActive = activeDirection === option.direction;
+            const isHover = overlayHoverDirection === option.direction;
+            const isPressed = overlayPressedDirection === option.direction;
+            const isActive = isKeyboardActive || isHover || isPressed;
+            const showKeyboardDwell =
+              enableDwellSelection &&
+              isKeyboardActive &&
+              !isBlinkPressed &&
+              !isResting;
+
+            return (
+              <button
+                key={`${dynamicOverlay.title}-${option.direction}-${option.label}`}
+                type="button"
+                disabled={isResting}
+                onClick={() => {
+                  clearOverlayHoverDwell();
+                  const suppressUntil =
+                    overlaySuppressClickUntilRef.current[option.direction] ?? 0;
+                  if (Date.now() < suppressUntil) return;
+                  option.action();
+                }}
+                onPointerEnter={(event) => startOverlayHoverDwell(event, option)}
+                onPointerLeave={() => clearOverlayHoverDwell()}
+                onPointerDown={(event) => {
+                  if (event.pointerType === "mouse" && event.button !== 0) return;
+                  clearOverlayHoverDwell();
+                  overlayPointerStartRef.current[option.direction] = Date.now();
+                  setOverlayPressedDirection(option.direction);
+                }}
+                onPointerUp={(event) => {
+                  if (event.pointerType === "mouse" && event.button !== 0) return;
+                  const startedAt = overlayPointerStartRef.current[option.direction];
+                  delete overlayPointerStartRef.current[option.direction];
+                  setOverlayPressedDirection(null);
+                  if (startedAt === undefined || isResting) return;
+                  const duration = Date.now() - startedAt;
+                  if (duration >= 1500 && option.longAction) {
+                    overlaySuppressClickUntilRef.current[option.direction] =
+                      Date.now() + 1000;
+                    option.longAction();
+                  }
+                }}
+                onPointerCancel={() => {
+                  delete overlayPointerStartRef.current[option.direction];
+                  setOverlayPressedDirection(null);
+                  clearOverlayHoverDwell();
+                }}
+                onContextMenu={(event) => event.preventDefault()}
+                className={
+                  `pointer-events-auto absolute ${overlayOptionPosition[option.direction]} flex h-16 w-16 touch-manipulation select-none flex-col items-center justify-center overflow-hidden rounded-full border-2 text-center shadow-xl transition sm:h-[4.5rem] sm:w-[4.5rem] ` +
+                  (isActive
+                    ? "scale-110 border-blue-700 bg-blue-600 text-white"
+                    : "border-blue-300 bg-white text-slate-950")
+                }
+              >
+                <span className="text-xl font-black sm:text-2xl">{option.label}</span>
+                <span
+                  className={
+                    "mt-0.5 text-[9px] font-bold " +
+                    (isActive ? "text-blue-100" : "text-slate-500")
+                  }
+                >
+                  {DIRECTION_KEY_LABEL[option.direction]}
+                </span>
+                {option.helper && (
+                  <span
+                    className={
+                      "mt-0.5 max-w-[90%] truncate text-[8px] " +
+                      (isActive ? "text-blue-100" : "text-slate-400")
+                    }
+                  >
+                    {option.helper}
+                  </span>
+                )}
+                {(isHover || showKeyboardDwell) &&
+                  renderDwellProgress(
+                    isHover
+                      ? overlayDwellKey
+                      : overlayDwellKey + 20000 + option.direction.charCodeAt(0)
+                  )}
+              </button>
+            );
+          })}
+        </div>
+      </>
     );
   };
 
   const centerIsPressed = !activeDirection && isBlinkPressed;
 
   return (
-    <div className="space-y-2 sm:space-y-3">
-      {/* 폭은 화면에 따라 자연스럽게 줄고, 높이는 viewport 높이에 맞춰 조절됩니다. */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        {renderDirectionalSlot("nw", "min-h-[clamp(4.25rem,11vh,6rem)]")}
-        {renderDirectionalSlot("n", "min-h-[clamp(4.25rem,11vh,6rem)]")}
-        {renderDirectionalSlot("ne", "min-h-[clamp(4.25rem,11vh,6rem)]")}
-      </div>
+    <div className="relative">
+      <div className="space-y-2 sm:space-y-3">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          {renderDirectionalSlot("nw", "min-h-[clamp(4.25rem,11vh,6rem)]")}
+          {renderDirectionalSlot("n", "min-h-[clamp(4.25rem,11vh,6rem)]")}
+          {renderDirectionalSlot("ne", "min-h-[clamp(4.25rem,11vh,6rem)]")}
+        </div>
 
-      {/* 세로 화면에서는 좁게, 가로 화면에서는 여유 있게 늘어나는 3열 구조 */}
-      <div className="grid grid-cols-[minmax(4.25rem,0.85fr)_minmax(0,2.3fr)_minmax(4.25rem,0.85fr)] items-stretch gap-2 sm:gap-3">
-        {renderDirectionalSlot("w", "min-h-[clamp(11rem,42vh,19rem)]")}
+        <div className="grid grid-cols-[minmax(4.25rem,0.85fr)_minmax(0,2.3fr)_minmax(4.25rem,0.85fr)] items-stretch gap-2 sm:gap-3">
+          {renderDirectionalSlot("w", "min-h-[clamp(11rem,42vh,19rem)]")}
 
-        <button
-          type="button"
-          onClick={() => {
-            if (Date.now() < centerSuppressClickUntilRef.current) return;
-            onCenter();
-          }}
-          onPointerDown={(event: ReactPointerEvent<HTMLButtonElement>) => {
-            if (event.pointerType === "mouse" && event.button !== 0) return;
-            centerPointerStartRef.current = Date.now();
-          }}
-          onPointerUp={(event: ReactPointerEvent<HTMLButtonElement>) => {
-            if (event.pointerType === "mouse" && event.button !== 0) return;
+          <button
+            type="button"
+            onClick={() => {
+              if (Date.now() < centerSuppressClickUntilRef.current) return;
+              onCenter();
+            }}
+            onPointerDown={(event: ReactPointerEvent<HTMLButtonElement>) => {
+              if (event.pointerType === "mouse" && event.button !== 0) return;
+              centerPointerStartRef.current = Date.now();
+            }}
+            onPointerUp={(event: ReactPointerEvent<HTMLButtonElement>) => {
+              if (event.pointerType === "mouse" && event.button !== 0) return;
 
-            const startedAt = centerPointerStartRef.current;
-            centerPointerStartRef.current = null;
+              const startedAt = centerPointerStartRef.current;
+              centerPointerStartRef.current = null;
 
-            if (startedAt === null) return;
+              if (startedAt === null) return;
 
-            const duration = Date.now() - startedAt;
+              const duration = Date.now() - startedAt;
 
-            if (duration >= 1500 && onCenterLong) {
-              centerSuppressClickUntilRef.current = Date.now() + 1000;
-              onCenterLong();
+              if (duration >= 1500 && onCenterLong) {
+                centerSuppressClickUntilRef.current = Date.now() + 1000;
+                onCenterLong();
+              }
+            }}
+            onPointerCancel={() => {
+              centerPointerStartRef.current = null;
+            }}
+            onContextMenu={(event) => event.preventDefault()}
+            className={
+              "relative flex min-h-[clamp(11rem,42vh,19rem)] min-w-0 touch-manipulation select-none flex-col items-center justify-center overflow-hidden rounded-3xl border-2 px-3 py-5 text-center transition sm:px-5 sm:py-7 md:px-8 md:py-10 " +
+              (isResting
+                ? "border-emerald-500 bg-emerald-600 text-white"
+                : centerIsPressed
+                  ? "scale-[1.03] border-blue-600 bg-slate-800 text-white shadow-xl"
+                  : isSpeaking
+                    ? "border-blue-500 bg-blue-100 text-slate-950"
+                    : "border-slate-700 bg-slate-900 text-white")
             }
-          }}
-          onPointerCancel={() => {
-            centerPointerStartRef.current = null;
-          }}
-          onContextMenu={(event) => event.preventDefault()}
-          className={
-            "relative flex min-h-[clamp(11rem,42vh,19rem)] min-w-0 touch-manipulation select-none flex-col items-center justify-center overflow-hidden rounded-3xl border-2 px-3 py-5 text-center transition sm:px-5 sm:py-7 md:px-8 md:py-10 " +
-            (isResting
-              ? "border-emerald-500 bg-emerald-600 text-white"
-              : centerIsPressed
-                ? "scale-[1.03] border-blue-600 bg-slate-800 text-white shadow-xl"
-                : isSpeaking
-                  ? "border-blue-500 bg-blue-100 text-slate-950"
-                  : "border-slate-700 bg-slate-900 text-white")
-          }
-        >
-          {isSpeaking && !isResting && (
-            <div
-              key={speechAnimationKey}
-              className="pointer-events-none absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-blue-400/60 to-transparent"
-              style={{
-                animation: `optitalkSpeechSweep ${speakingDurationMs}ms linear forwards`,
-              }}
-            />
-          )}
+          >
+            {isSpeaking && !isResting && (
+              <div
+                key={speechAnimationKey}
+                className="pointer-events-none absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-blue-400/60 to-transparent"
+                style={{
+                  animation: `optitalkSpeechSweep ${speakingDurationMs}ms linear forwards`,
+                }}
+              />
+            )}
 
-          <div className="relative z-10 flex w-full flex-col items-center">
-            <span
-              className={
-                "rounded-full px-3 py-1 text-xs font-bold tracking-wide " +
-                (isResting
-                  ? "bg-white/20 text-white"
+            <div className="relative z-10 flex w-full flex-col items-center">
+              <span
+                className={
+                  "rounded-full px-3 py-1 text-xs font-bold tracking-wide " +
+                  (isResting
+                    ? "bg-white/20 text-white"
+                    : isSpeaking
+                      ? "bg-blue-600 text-white"
+                      : "bg-white/10 text-slate-200")
+                }
+              >
+                {isResting ? "REST MODE" : isSpeaking ? "SPEAKING" : centerTitle}
+              </span>
+
+              <p className="mt-3 max-w-full whitespace-pre-line break-words text-[clamp(1.15rem,5vw,2.25rem)] font-bold leading-relaxed sm:mt-5">
+                {isResting ? "휴식 중입니다." : centerText}
+              </p>
+
+              <span
+                className={
+                  "mt-3 break-words text-[clamp(0.62rem,2.5vw,0.875rem)] font-semibold sm:mt-5 " +
+                  (isResting
+                    ? "text-emerald-100"
+                    : isSpeaking
+                      ? "text-blue-800"
+                      : "text-slate-300")
+                }
+              >
+                {isResting
+                  ? "Space를 1.5초 이상 길게 눌러 휴식 해제 · 클릭 가능"
                   : isSpeaking
-                    ? "bg-blue-600 text-white"
-                    : "bg-white/10 text-slate-200")
-              }
-            >
-              {isResting ? "REST MODE" : isSpeaking ? "SPEAKING" : centerTitle}
-            </span>
+                    ? "음성 출력이 끝나면 Work Zone이 초기화됩니다."
+                    : centerHelper + " · 클릭 가능"}
+              </span>
+            </div>
+          </button>
 
-            <p className="mt-3 max-w-full whitespace-pre-line break-words text-[clamp(1.15rem,5vw,2.25rem)] font-bold leading-relaxed sm:mt-5">
-              {isResting ? "휴식 중입니다." : centerText}
-            </p>
+          {renderDirectionalSlot("e", "min-h-[clamp(11rem,42vh,19rem)]")}
+        </div>
 
-            <span
-              className={
-                "mt-3 break-words text-[clamp(0.62rem,2.5vw,0.875rem)] font-semibold sm:mt-5 " +
-                (isResting
-                  ? "text-emerald-100"
-                  : isSpeaking
-                    ? "text-blue-800"
-                    : "text-slate-300")
-              }
-            >
-              {isResting
-                ? "Space를 1.5초 이상 길게 눌러 휴식 해제 · 클릭 가능"
-                : isSpeaking
-                  ? "음성 출력이 끝나면 Work Zone이 초기화됩니다."
-                  : centerHelper + " · 클릭 가능"}
-            </span>
-          </div>
-        </button>
-
-        {renderDirectionalSlot("e", "min-h-[clamp(11rem,42vh,19rem)]")}
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          {renderDirectionalSlot("sw", "min-h-[clamp(4.25rem,11vh,6rem)]")}
+          {renderDirectionalSlot("s", "min-h-[clamp(4.25rem,11vh,6rem)]")}
+          {renderDirectionalSlot("se", "min-h-[clamp(4.25rem,11vh,6rem)]")}
+        </div>
       </div>
 
-      {/* 하단 3개 칸도 동일한 너비 */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        {renderDirectionalSlot("sw", "min-h-[clamp(4.25rem,11vh,6rem)]")}
-        {renderDirectionalSlot("s", "min-h-[clamp(4.25rem,11vh,6rem)]")}
-        {renderDirectionalSlot("se", "min-h-[clamp(4.25rem,11vh,6rem)]")}
-      </div>
+      {renderDynamicOverlay()}
     </div>
   );
 }
@@ -1493,6 +1771,7 @@ export default function Home() {
   };
 
   let radialItems: RadialItem[] = [];
+  let dynamicInitialOverlay: DynamicOverlayConfig | null = null;
 
   if (screen === "home") {
     radialItems = [
@@ -1636,17 +1915,24 @@ export default function Home() {
   }
 
   if (screen === "free-input" && inputMode === "initial") {
-    if (initialStage === "groups") {
+    if (initialStage === "groups" || initialStage === "letters") {
       const groups = Object.keys(INITIAL_GROUP_MAP) as InitialGroup[];
 
       radialItems = groups.map((group, index) => ({
         direction: INPUT_DIRECTION_ORDER[index],
         label: group + " 그룹",
-        helper: INITIAL_GROUP_MAP[group].join(" · "),
+        helper:
+          selectedInitialGroup === group && initialStage === "letters"
+            ? "선택됨 · 위 레이어에 펼쳐짐"
+            : INITIAL_GROUP_MAP[group].join(" · "),
         action: () => {
           setSelectedInitialGroup(group);
           setInitialStage("letters");
         },
+        tone:
+          selectedInitialGroup === group && initialStage === "letters"
+            ? "primary"
+            : "normal",
       }));
 
       radialItems.push(
@@ -1659,7 +1945,9 @@ export default function Home() {
             if (initialInput) {
               setInitialInput((previous) => previous.slice(0, -1));
             } else {
-              setCommittedInputSegments((previous) => deleteLastInputSegmentCharacter(previous));
+              setCommittedInputSegments((previous) =>
+                deleteLastInputSegmentCharacter(previous)
+              );
             }
             setSelectedSentence("");
           },
@@ -1686,62 +1974,36 @@ export default function Home() {
           action: goHome,
         }
       );
-    }
 
-    if (initialStage === "letters" && selectedInitialGroup) {
-      const letters = INITIAL_GROUP_MAP[selectedInitialGroup];
+      if (initialStage === "letters" && selectedInitialGroup) {
+        const letters = INITIAL_GROUP_MAP[selectedInitialGroup];
+        const groupIndex = groups.indexOf(selectedInitialGroup);
+        const anchorDirection = INPUT_DIRECTION_ORDER[groupIndex];
+        const fourWayDirections: DynamicOverlayDirection[] = ["n", "e", "s", "w"];
+        const twoWayDirections: DynamicOverlayDirection[] = ["n", "s"];
+        const overlayDirections =
+          letters.length <= 2 ? twoWayDirections : fourWayDirections;
 
-      radialItems = letters.map((letter, index) => ({
-        direction: INPUT_DIRECTION_ORDER[index],
-        label: letter,
-        helper: DOUBLE_CONSONANT_MAP[letter]
-          ? "짧게: " + letter + " · 1.5초 이상: " + DOUBLE_CONSONANT_MAP[letter]
-          : "짧게 눌러 선택",
-        action: () => selectInitialLetter(letter, false),
-        longAction: DOUBLE_CONSONANT_MAP[letter]
-          ? () => selectInitialLetter(letter, true)
-          : undefined,
-      }));
-
-      radialItems.push(
-        {
-          direction: "e",
-          label: "지우기",
-          longAction: clearCurrentWorkZone,
-          helper: "초성 한 글자 삭제",
-          action: () => {
-            if (initialInput) {
-              setInitialInput((previous) => previous.slice(0, -1));
-            } else {
-              setCommittedInputSegments((previous) => deleteLastInputSegmentCharacter(previous));
-            }
-          },
-        },
-        {
-          direction: "sw",
-          label: "그룹으로",
-          helper: "이전 단계",
-          action: () => {
+        dynamicInitialOverlay = {
+          anchorDirection,
+          title: selectedInitialGroup,
+          onDismiss: () => {
             setSelectedInitialGroup(null);
             setInitialStage("groups");
           },
-        },
-        {
-          direction: "s",
-          label: "문장 추천",
-          helper: "추천 문장 보기",
-          action: () => {
-            void loadInitialRecommendations();
-          },
-        },
-        {
-          direction: "se",
-          label: "완전 자유 입력",
-          helper: "현재 문장을 유지하고 자모 입력",
-          action: switchToDirectInput,
-          tone: "primary",
-        }
-      );
+          options: letters.map((letter, index) => ({
+            direction: overlayDirections[index],
+            label: letter,
+            helper: DOUBLE_CONSONANT_MAP[letter]
+              ? `Long blink → ${DOUBLE_CONSONANT_MAP[letter]}`
+              : undefined,
+            action: () => selectInitialLetter(letter, false),
+            longAction: DOUBLE_CONSONANT_MAP[letter]
+              ? () => selectInitialLetter(letter, true)
+              : undefined,
+          })),
+        };
+      }
     }
 
     if (initialStage === "suggestions") {
@@ -2754,7 +3016,17 @@ export default function Home() {
     }
   }
 
-  const radialItemsRef = useRef<RadialItem[]>(radialItems);
+  const interactionItems: RadialItem[] = dynamicInitialOverlay
+    ? dynamicInitialOverlay.options.map((option) => ({
+        direction: option.direction,
+        label: option.label,
+        helper: option.helper,
+        action: option.action,
+        longAction: option.longAction,
+      }))
+    : radialItems;
+
+  const radialItemsRef = useRef<RadialItem[]>(interactionItems);
   const activeDirectionRef = useRef<Direction | null>(activeDirection);
   const isRestingRef = useRef(isResting);
   const screenRef = useRef(screen);
@@ -2763,7 +3035,7 @@ export default function Home() {
   const directOutputRef = useRef(currentInputText);
 
   useEffect(() => {
-    radialItemsRef.current = radialItems;
+    radialItemsRef.current = interactionItems;
     activeDirectionRef.current = activeDirection;
     isRestingRef.current = isResting;
     screenRef.current = screen;
@@ -2804,11 +3076,16 @@ export default function Home() {
   const scheduleDirectionSequenceClear = () => {
     clearDirectionTimer();
 
+    const clearDelay =
+      screenRef.current === "free-input" && inputModeRef.current === "initial"
+        ? 1850
+        : 1500;
+
     directionClearTimerRef.current = setTimeout(() => {
       directionClearTimerRef.current = null;
       directionSequenceRef.current = [];
       setHeldArrowKeys([]);
-    }, 1500);
+    }, clearDelay);
   };
 
   const appendDirectionKey = (key: ArrowKey) => {
@@ -3012,6 +3289,50 @@ export default function Home() {
       clearRestHoldTimer();
     };
   }, []);
+
+  useEffect(() => {
+    const longGazeEnabled =
+      screen === "free-input" && inputMode === "initial";
+
+    if (
+      !longGazeEnabled ||
+      !activeDirection ||
+      isBlinkPressed ||
+      isResting
+    ) {
+      return;
+    }
+
+    const targetDirection = activeDirection;
+    const target = radialItemsRef.current.find(
+      (candidate) => candidate.direction === targetDirection
+    );
+
+    if (!target) return;
+
+    const timer = setTimeout(() => {
+      const latestTarget = radialItemsRef.current.find(
+        (candidate) => candidate.direction === targetDirection
+      );
+
+      if (!latestTarget || isRestingRef.current) return;
+
+      latestTarget.action();
+      clearDirectionSequence();
+    }, 1500);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [
+    activeDirection,
+    isBlinkPressed,
+    isResting,
+    screen,
+    inputMode,
+    initialStage,
+    selectedInitialGroup,
+  ]);
 
   useEffect(() => {
     clearDirectionSequence();
@@ -3342,6 +3663,11 @@ export default function Home() {
             isSpeaking={isSpeaking}
             speakingDurationMs={speakingDurationMs}
             speechAnimationKey={speechAnimationKey}
+            enableDwellSelection={
+              screen === "free-input" && inputMode === "initial"
+            }
+            dwellMs={1500}
+            dynamicOverlay={dynamicInitialOverlay}
             onCenter={() => setIsResting((previous) => !previous)}
             onCenterLong={() => setIsResting((previous) => !previous)}
           />
@@ -3355,6 +3681,15 @@ export default function Home() {
           button {
             -webkit-tap-highlight-color: transparent;
             touch-action: manipulation;
+          }
+
+          @keyframes glimDwellProgress {
+            from {
+              transform: scaleX(0);
+            }
+            to {
+              transform: scaleX(1);
+            }
           }
 
           @keyframes optitalkSpeechSweep {
