@@ -3071,78 +3071,131 @@ export default function Home() {
 
     if (directStage === "final-letters" && selectedFinalGroup) {
       const letters = FINAL_GROUP_MAP[selectedFinalGroup];
-      const pageSize = 4;
-      const pageStart = finalPage * pageSize;
-      const remainingLetters = letters.slice(pageStart);
-      const pageLetters = remainingLetters.slice(0, pageSize);
-      const fifthFinal =
-        remainingLetters.length === 5 ? remainingLetters[4] : null;
-      const hasNext = remainingLetters.length > pageSize && !fifthFinal;
 
-      radialItems = pageLetters.map((letter, index) => ({
-        direction: INPUT_DIRECTION_ORDER[index],
-        label: letter,
-        helper: letter.length > 1 ? "문맥 기반 복합 받침" : "받침 선택",
-        action: () => {
-          // 받침까지 선택되면 현재 글자를 완성하고
-          // 다음 글자의 초성 또는 English 선택 화면으로 돌아갑니다.
-          commitFinalAndReturnToStart(letter);
-        },
-      }));
+      if (directionMode === "4") {
+        // 4방향에서는 받침 글자 페이지 이동을 기능 레이어와 분리합니다.
+        // 모든 받침 후보를 content item으로 넘기고, 아래의 4방향 공통
+        // pagination이 3개 후보 + 아래쪽 '다음 페이지' 형태로 처리합니다.
+        // 따라서 기능 레이어를 열어 '다음/이전'을 누른 뒤 페이지와
+        // 레이어 상태가 엇갈리는 문제가 발생하지 않습니다.
+        radialItems = letters.map((letter, index) => ({
+          direction: INPUT_DIRECTION_ORDER[index % INPUT_DIRECTION_ORDER.length],
+          label: letter,
+          helper: letter.length > 1 ? "문맥 기반 복합 받침" : "받침 선택",
+          action: () => {
+            commitFinalAndReturnToStart(letter);
+          },
+        }));
 
-      radialItems.push(
-        {
-          direction: "e",
-          label: "지우기",
-          longAction: clearCurrentWorkZone,
-          helper: "마지막 자모 삭제",
-          action: deleteDirectCharacter,
-        },
-        {
-          direction: "sw",
-          label: finalPage > 0 ? "이전" : "띄어쓰기",
-          helper: finalPage > 0 ? "이전 받침" : "현재 글자 확정",
-          action: () => {
-            if (finalPage > 0) {
-              setFinalPage((previous) => Math.max(previous - 1, 0));
-            } else {
-              addSpace();
-            }
+        radialItems.push(
+          {
+            direction: "e",
+            label: "지우기",
+            longAction: clearCurrentWorkZone,
+            helper: "마지막 자모 삭제",
+            action: deleteDirectCharacter,
           },
-        },
-        {
-          direction: "s",
-          label: "그룹으로",
-          helper: "받침 그룹 선택",
-          action: () => {
-            setSelectedFinalGroup(null);
-            setFinalPage(0);
-            setDirectStage("final-groups");
+          {
+            direction: "sw",
+            label: "띄어쓰기",
+            helper: "받침 없이 현재 글자 확정",
+            action: addSpace,
           },
-        },
-        fifthFinal
-          ? {
-              direction: "se",
-              label: fifthFinal,
-              helper:
-                fifthFinal.length > 1 ? "문맥 기반 복합 받침" : "받침 선택",
-              action: () => {
-                commitFinalAndReturnToStart(fifthFinal);
-              },
-            }
-          : {
-              direction: "se",
-              label: hasNext ? "다음" : "추천",
-              helper: hasNext ? "다음 받침" : "문장 추천",
-              action: () => {
-                if (hasNext) {
-                  setFinalPage((previous) => previous + 1);
-                } else {
-                  void loadDirectRecommendations();
-                }
-              },
-            }
-      );
+          {
+            direction: "s",
+            label: "그룹으로",
+            helper: "받침 그룹 선택",
+            action: () => {
+              setSelectedFinalGroup(null);
+              setFinalPage(0);
+              setFourWayPage(0);
+              setDirectStage("final-groups");
+            },
+          },
+          {
+            direction: "se",
+            label: "추천",
+            helper: "문맥 기반 문장 추천",
+            action: () => {
+              void loadDirectRecommendations();
+            },
+          }
+        );
+      } else {
+        // 8방향은 기존 받침 페이지 동작을 그대로 유지합니다.
+        const pageSize = 4;
+        const pageStart = finalPage * pageSize;
+        const remainingLetters = letters.slice(pageStart);
+        const pageLetters = remainingLetters.slice(0, pageSize);
+        const fifthFinal =
+          remainingLetters.length === 5 ? remainingLetters[4] : null;
+        const hasNext = remainingLetters.length > pageSize && !fifthFinal;
+
+        radialItems = pageLetters.map((letter, index) => ({
+          direction: INPUT_DIRECTION_ORDER[index],
+          label: letter,
+          helper: letter.length > 1 ? "문맥 기반 복합 받침" : "받침 선택",
+          action: () => {
+            // 받침까지 선택되면 현재 글자를 완성하고
+            // 다음 글자의 초성 또는 English 선택 화면으로 돌아갑니다.
+            commitFinalAndReturnToStart(letter);
+          },
+        }));
+
+        radialItems.push(
+          {
+            direction: "e",
+            label: "지우기",
+            longAction: clearCurrentWorkZone,
+            helper: "마지막 자모 삭제",
+            action: deleteDirectCharacter,
+          },
+          {
+            direction: "sw",
+            label: finalPage > 0 ? "이전" : "띄어쓰기",
+            helper: finalPage > 0 ? "이전 받침" : "현재 글자 확정",
+            action: () => {
+              if (finalPage > 0) {
+                setFinalPage((previous) => Math.max(previous - 1, 0));
+              } else {
+                addSpace();
+              }
+            },
+          },
+          {
+            direction: "s",
+            label: "그룹으로",
+            helper: "받침 그룹 선택",
+            action: () => {
+              setSelectedFinalGroup(null);
+              setFinalPage(0);
+              setDirectStage("final-groups");
+            },
+          },
+          fifthFinal
+            ? {
+                direction: "se",
+                label: fifthFinal,
+                helper:
+                  fifthFinal.length > 1 ? "문맥 기반 복합 받침" : "받침 선택",
+                action: () => {
+                  commitFinalAndReturnToStart(fifthFinal);
+                },
+              }
+            : {
+                direction: "se",
+                label: hasNext ? "다음" : "추천",
+                helper: hasNext ? "다음 받침" : "문장 추천",
+                action: () => {
+                  if (hasNext) {
+                    setFinalPage((previous) => previous + 1);
+                  } else {
+                    void loadDirectRecommendations();
+                  }
+                },
+              }
+        );
+      }
     }
 
     if (directStage === "english-groups") {
