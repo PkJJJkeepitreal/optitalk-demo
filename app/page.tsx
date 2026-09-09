@@ -12,6 +12,7 @@ import {
 type Screen =
   | "home"
   | "manual"
+  | "settings"
   | "category-menu"
   | "category"
   | "free-input";
@@ -34,6 +35,9 @@ type DirectStage =
   | "english-groups"
   | "english-group4-subgroups"
   | "english-letters"
+  | "cheonjiin-initial-groups"
+  | "cheonjiin-initial-letters"
+  | "cheonjiin-vowels"
   | "suggestions";
 
 type Direction = "nw" | "n" | "ne" | "w" | "e" | "sw" | "s" | "se";
@@ -55,6 +59,9 @@ type RadialItem = {
   longAction?: () => void;
   tone?: "normal" | "primary" | "danger";
 };
+
+type DirectionMode = "8" | "4";
+type KoreanDirectLayout = "group" | "cheonjiin";
 
 type DynamicOverlayDirection = "n" | "e" | "s" | "w";
 
@@ -186,6 +193,47 @@ const INITIAL_GROUP_MAP = {
 } as const;
 
 type InitialGroup = keyof typeof INITIAL_GROUP_MAP;
+
+const CHEONJIIN_INITIAL_GROUP_MAP = {
+  "ㄱ·ㅋ·ㄴ·ㄹ": ["ㄱ", "ㅋ", "ㄴ", "ㄹ"],
+  "ㄷ·ㅌ·ㅅ·ㅎ": ["ㄷ", "ㅌ", "ㅅ", "ㅎ"],
+  "ㅂ·ㅍ·ㅁ·ㅇ": ["ㅂ", "ㅍ", "ㅁ", "ㅇ"],
+  "ㅈ·ㅊ": ["ㅈ", "ㅊ"],
+} as const;
+
+type CheonjiinInitialGroup = keyof typeof CHEONJIIN_INITIAL_GROUP_MAP;
+
+const CHEONJIIN_VOWEL_MAP: Record<string, string> = {
+  "ㅣ": "ㅣ",
+  "ㅡ": "ㅡ",
+  "ㅣㆍ": "ㅏ",
+  "ㆍㅣ": "ㅓ",
+  "ㆍㅡ": "ㅗ",
+  "ㅡㆍ": "ㅜ",
+  "ㅣㆍㆍ": "ㅑ",
+  "ㆍㆍㅣ": "ㅕ",
+  "ㆍㆍㅡ": "ㅛ",
+  "ㅡㆍㆍ": "ㅠ",
+  "ㅣㆍㅣ": "ㅐ",
+  "ㆍㅣㅣ": "ㅔ",
+  "ㅣㆍㆍㅣ": "ㅒ",
+  "ㆍㆍㅣㅣ": "ㅖ",
+  "ㆍㅡㅣ": "ㅚ",
+  "ㆍㅡㅣㆍ": "ㅘ",
+  "ㆍㅡㅣㆍㅣ": "ㅙ",
+  "ㅡㆍㅣ": "ㅟ",
+  "ㅡㆍㆍㅣ": "ㅝ",
+  "ㅡㆍㆍㅣㅣ": "ㅞ",
+  "ㅡㅣ": "ㅢ",
+};
+
+const CHEONJIIN_VOWEL_PREFIXES = new Set(
+  Object.keys(CHEONJIIN_VOWEL_MAP).flatMap((sequence) =>
+    Array.from({ length: sequence.length }, (_, index) =>
+      sequence.slice(0, index + 1)
+    )
+  )
+);
 
 const VOWEL_GROUP_MAP = {
   "ㅡ": ["ㅡ", "ㅗ", "ㅜ", "ㅘ", "ㅝ", "ㅙ", "ㅞ"],
@@ -354,6 +402,36 @@ const DIRECTION_KEY_LABEL: Record<Direction, string> = {
   se: "↓ + →",
 };
 
+const FOUR_WAY_DIRECTIONS: Direction[] = ["n", "e", "s", "w"];
+const FOUR_WAY_PAGED_DIRECTIONS: Direction[] = ["n", "e", "w"];
+
+function isFourWayUtilityItem(item: RadialItem) {
+  const label = item.label.trim();
+
+  return (
+    label === "지우기" ||
+    label === "뒤로" ||
+    label === "홈" ||
+    label === "그룹으로" ||
+    label === "띄어쓰기" ||
+    label === "추천" ||
+    label === "문장 추천" ||
+    label === "추천 새로고침" ||
+    label === "생성 중..." ||
+    label === "말하기" ||
+    label === "자모 입력" ||
+    label === "초성 입력" ||
+    label === "초성 모드" ||
+    label === "초성 다시 선택" ||
+    label === "완전 자유 입력" ||
+    label === "이전" ||
+    label === "다음" ||
+    label === "한 획 지우기" ||
+    label === "모음 초기화" ||
+    label.startsWith("확정 ")
+  );
+}
+
 
 
 function appendInputSegment(segments: InputSegment[], type: InputSegmentType, text: string): InputSegment[] {
@@ -477,6 +555,7 @@ function RadialPad({
   enableDwellSelection = false,
   dwellMs = 1500,
   dynamicOverlay = null,
+  layoutMode = "8",
 }: {
   items: RadialItem[];
   activeDirection: Direction | null;
@@ -493,6 +572,7 @@ function RadialPad({
   enableDwellSelection?: boolean;
   dwellMs?: number;
   dynamicOverlay?: DynamicOverlayConfig | null;
+  layoutMode?: DirectionMode;
 }) {
   const pointerStartRef = useRef<Partial<Record<Direction, number>>>({});
   const pointerLongReadyTimerRef = useRef<
@@ -957,11 +1037,19 @@ function RadialPad({
   return (
     <div className="relative">
       <div className="space-y-2 sm:space-y-3">
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
-          {renderDirectionalSlot("nw", "min-h-[clamp(4.25rem,11vh,6rem)]")}
-          {renderDirectionalSlot("n", "min-h-[clamp(4.25rem,11vh,6rem)]")}
-          {renderDirectionalSlot("ne", "min-h-[clamp(4.25rem,11vh,6rem)]")}
-        </div>
+        {layoutMode === "8" ? (
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            {renderDirectionalSlot("nw", "min-h-[clamp(4.25rem,11vh,6rem)]")}
+            {renderDirectionalSlot("n", "min-h-[clamp(4.25rem,11vh,6rem)]")}
+            {renderDirectionalSlot("ne", "min-h-[clamp(4.25rem,11vh,6rem)]")}
+          </div>
+        ) : (
+          <div className="grid grid-cols-[minmax(4.25rem,0.85fr)_minmax(0,2.3fr)_minmax(4.25rem,0.85fr)] gap-2 sm:gap-3">
+            <div />
+            {renderDirectionalSlot("n", "min-h-[clamp(4.25rem,11vh,6rem)]")}
+            <div />
+          </div>
+        )}
 
         <div className="grid grid-cols-[minmax(4.25rem,0.85fr)_minmax(0,2.3fr)_minmax(4.25rem,0.85fr)] items-stretch gap-2 sm:gap-3">
           {renderDirectionalSlot("w", "min-h-[clamp(11rem,42vh,19rem)]")}
@@ -1056,11 +1144,19 @@ function RadialPad({
           {renderDirectionalSlot("e", "min-h-[clamp(11rem,42vh,19rem)]")}
         </div>
 
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
-          {renderDirectionalSlot("sw", "min-h-[clamp(4.25rem,11vh,6rem)]")}
-          {renderDirectionalSlot("s", "min-h-[clamp(4.25rem,11vh,6rem)]")}
-          {renderDirectionalSlot("se", "min-h-[clamp(4.25rem,11vh,6rem)]")}
-        </div>
+        {layoutMode === "8" ? (
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            {renderDirectionalSlot("sw", "min-h-[clamp(4.25rem,11vh,6rem)]")}
+            {renderDirectionalSlot("s", "min-h-[clamp(4.25rem,11vh,6rem)]")}
+            {renderDirectionalSlot("se", "min-h-[clamp(4.25rem,11vh,6rem)]")}
+          </div>
+        ) : (
+          <div className="grid grid-cols-[minmax(4.25rem,0.85fr)_minmax(0,2.3fr)_minmax(4.25rem,0.85fr)] gap-2 sm:gap-3">
+            <div />
+            {renderDirectionalSlot("s", "min-h-[clamp(4.25rem,11vh,6rem)]")}
+            <div />
+          </div>
+        )}
       </div>
 
       {renderDynamicOverlay()}
@@ -1080,6 +1176,11 @@ export default function Home() {
     useState(false);
   const [recommendationError, setRecommendationError] = useState("");
   const [isResting, setIsResting] = useState(false);
+  const [directionMode, setDirectionMode] = useState<DirectionMode>("8");
+  const [koreanDirectLayout, setKoreanDirectLayout] =
+    useState<KoreanDirectLayout>("group");
+  const [fourWayUtilityOpen, setFourWayUtilityOpen] = useState(false);
+  const [fourWayPage, setFourWayPage] = useState(0);
 
   const [initialStage, setInitialStage] = useState<InitialStage>("groups");
   const [selectedInitialGroup, setSelectedInitialGroup] =
@@ -1095,6 +1196,9 @@ export default function Home() {
   const [directStage, setDirectStage] = useState<DirectStage>("root");
   const [selectedDirectInitialGroup, setSelectedDirectInitialGroup] =
     useState<InitialGroup | null>(null);
+  const [selectedCheonjiinInitialGroup, setSelectedCheonjiinInitialGroup] =
+    useState<CheonjiinInitialGroup | null>(null);
+  const [cheonjiinVowelSequence, setCheonjiinVowelSequence] = useState("");
   const [selectedVowelGroup, setSelectedVowelGroup] =
     useState<VowelGroup | null>(null);
   const [selectedFinalGroup, setSelectedFinalGroup] =
@@ -1126,6 +1230,31 @@ export default function Home() {
     () => getDirectionFromKeys(heldArrowKeys),
     [heldArrowKeys]
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const savedDirectionMode = window.localStorage.getItem("glim-direction-mode");
+    const savedKoreanLayout = window.localStorage.getItem("glim-korean-direct-layout");
+
+    if (savedDirectionMode === "4" || savedDirectionMode === "8") {
+      setDirectionMode(savedDirectionMode);
+    }
+
+    if (savedKoreanLayout === "group" || savedKoreanLayout === "cheonjiin") {
+      setKoreanDirectLayout(savedKoreanLayout);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("glim-direction-mode", directionMode);
+  }, [directionMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("glim-korean-direct-layout", koreanDirectLayout);
+  }, [koreanDirectLayout]);
 
   const directOutput = directText + composeSyllable(syllable);
   const committedInputText = useMemo(
@@ -1261,6 +1390,8 @@ export default function Home() {
       setSyllable(EMPTY_SYLLABLE);
       setDirectStage("root");
       setSelectedDirectInitialGroup(null);
+      setSelectedCheonjiinInitialGroup(null);
+      setCheonjiinVowelSequence("");
       setSelectedVowelGroup(null);
       setSelectedFinalGroup(null);
       setSelectedEnglishGroup(null);
@@ -1357,6 +1488,8 @@ export default function Home() {
     setSyllable(EMPTY_SYLLABLE);
     setDirectStage("root");
     setSelectedDirectInitialGroup(null);
+    setSelectedCheonjiinInitialGroup(null);
+    setCheonjiinVowelSequence("");
     setSelectedVowelGroup(null);
     setSelectedFinalGroup(null);
     setSelectedEnglishGroup(null);
@@ -1416,6 +1549,8 @@ export default function Home() {
     setSyllable(EMPTY_SYLLABLE);
     setEnglishInitialInput("");
     setSelectedDirectInitialGroup(null);
+    setSelectedCheonjiinInitialGroup(null);
+    setCheonjiinVowelSequence("");
     setSelectedVowelGroup(null);
     setSelectedFinalGroup(null);
     setSelectedEnglishGroup(null);
@@ -1443,6 +1578,8 @@ export default function Home() {
     setSyllable(EMPTY_SYLLABLE);
     setInitialInput("");
     setSelectedDirectInitialGroup(null);
+    setSelectedCheonjiinInitialGroup(null);
+    setCheonjiinVowelSequence("");
     setSelectedVowelGroup(null);
     setSelectedFinalGroup(null);
     setSelectedEnglishGroup(null);
@@ -1716,6 +1853,48 @@ export default function Home() {
     setSelectedSentence("");
   };
 
+  const startKoreanInitialInput = () => {
+    setSelectedDirectInitialGroup(null);
+    setSelectedCheonjiinInitialGroup(null);
+    setCheonjiinVowelSequence("");
+    setDirectStage(
+      koreanDirectLayout === "cheonjiin"
+        ? "cheonjiin-initial-groups"
+        : "initial-groups"
+    );
+  };
+
+  const startKoreanVowelInput = () => {
+    setSelectedVowelGroup(null);
+    setVowelPage(0);
+    setCheonjiinVowelSequence("");
+    setDirectStage(
+      koreanDirectLayout === "cheonjiin" ? "cheonjiin-vowels" : "vowel-groups"
+    );
+  };
+
+  const appendCheonjiinVowelStroke = (stroke: "ㅣ" | "ㆍ" | "ㅡ") => {
+    setSelectedSentence("");
+    setCheonjiinVowelSequence((previous) => {
+      const candidate = previous + stroke;
+
+      if (CHEONJIIN_VOWEL_PREFIXES.has(candidate)) {
+        return candidate;
+      }
+
+      return CHEONJIIN_VOWEL_PREFIXES.has(stroke) ? stroke : previous;
+    });
+  };
+
+  const confirmCheonjiinVowel = () => {
+    const vowel = CHEONJIIN_VOWEL_MAP[cheonjiinVowelSequence];
+    if (!vowel) return;
+
+    addVowelToDirect(vowel);
+    setCheonjiinVowelSequence("");
+    setDirectStage("root");
+  };
+
   const selectDirectInitialLetter = (letter: string, longBlink: boolean) => {
     const selected =
       longBlink && DOUBLE_CONSONANT_MAP[letter]
@@ -1725,9 +1904,8 @@ export default function Home() {
     addInitialToDirect(selected);
     setSelectedDirectInitialGroup(null);
 
-    // 초성을 선택하면 다음 입력은 반드시 중성이므로
-    // 모음 그룹 선택 화면으로 자동 이동합니다.
-    setDirectStage("vowel-groups");
+    // 초성을 선택하면 설정된 한글 입력 방식의 모음 단계로 자동 이동합니다.
+    startKoreanVowelInput();
   };
 
   const commitSyllableAndReturnToStart = () => {
@@ -1741,9 +1919,9 @@ export default function Home() {
     setSelectedSentence("");
     setSelectedDirectInitialGroup(null);
 
-    // 받침 없이 다음 글자로 넘어갈 때는 English 선택 화면을 거치지 않고
-    // 곧바로 다음 한글 글자의 초성 그룹 선택 화면으로 이동합니다.
-    setDirectStage("initial-groups");
+    // 받침 없이 다음 글자로 넘어갈 때는 설정된 한글 입력 방식의
+    // 다음 초성 선택 화면으로 바로 이동합니다.
+    startKoreanInitialInput();
   };
 
   const commitFinalAndReturnToStart = (letter: string) => {
@@ -1784,6 +1962,15 @@ export default function Home() {
           setManualSelectedDirection(null);
           setIsResting(false);
           setScreen("manual");
+        },
+      },
+      {
+        direction: "ne",
+        label: "설정",
+        helper: "4방향 · 천지인 설정",
+        action: () => {
+          setIsResting(false);
+          setScreen("settings");
         },
       },
       {
@@ -1828,7 +2015,12 @@ export default function Home() {
   }
 
   if (screen === "manual") {
-    radialItems = (Object.keys(DIRECTION_LABEL) as Direction[]).map(
+    const manualDirections: Direction[] =
+      directionMode === "4"
+        ? ["n", "e", "s", "w"]
+        : (Object.keys(DIRECTION_LABEL) as Direction[]);
+
+    radialItems = manualDirections.map(
       (direction) => ({
         direction,
         label: DIRECTION_LABEL[direction],
@@ -1978,7 +2170,10 @@ export default function Home() {
       if (initialStage === "letters" && selectedInitialGroup) {
         const letters = INITIAL_GROUP_MAP[selectedInitialGroup];
         const groupIndex = groups.indexOf(selectedInitialGroup);
-        const anchorDirection = INPUT_DIRECTION_ORDER[groupIndex];
+        const anchorDirection =
+          directionMode === "4"
+            ? FOUR_WAY_DIRECTIONS[groupIndex]
+            : INPUT_DIRECTION_ORDER[groupIndex];
         const fourWayDirections: DynamicOverlayDirection[] = ["n", "e", "s", "w"];
         const twoWayDirections: DynamicOverlayDirection[] = ["n", "s"];
         const overlayDirections =
@@ -2304,8 +2499,11 @@ export default function Home() {
           {
             direction: "n",
             label: "초성 자음",
-            helper: "ㄱ · ㅁ · ㅅ · ㅇ",
-            action: () => setDirectStage("initial-groups"),
+            helper:
+              koreanDirectLayout === "cheonjiin"
+                ? "천지인 자음 그룹"
+                : "ㄱ · ㅁ · ㅅ · ㅇ",
+            action: startKoreanInitialInput,
           },
           {
             direction: "ne",
@@ -2355,8 +2553,11 @@ export default function Home() {
           {
             direction: "nw",
             label: "중성 모음",
-            helper: "ㅡ · ㅣ · ㅛ · ㅕ",
-            action: () => setDirectStage("vowel-groups"),
+            helper:
+              koreanDirectLayout === "cheonjiin"
+                ? "ㅣ · ㆍ · ㅡ 천지인 조합"
+                : "ㅡ · ㅣ · ㅛ · ㅕ",
+            action: startKoreanVowelInput,
             tone: "primary",
           },
           {
@@ -2370,7 +2571,7 @@ export default function Home() {
             direction: "sw",
             label: "초성 다시 선택",
             helper: "초성 그룹으로",
-            action: () => setDirectStage("initial-groups"),
+            action: startKoreanInitialInput,
           },
           {
             direction: "s",
@@ -2433,6 +2634,176 @@ export default function Home() {
           },
         ];
       }
+    }
+
+    if (directStage === "cheonjiin-initial-groups") {
+      const groups = Object.keys(
+        CHEONJIIN_INITIAL_GROUP_MAP
+      ) as CheonjiinInitialGroup[];
+
+      radialItems = groups.map((group, index) => ({
+        direction: INPUT_DIRECTION_ORDER[index],
+        label: group,
+        helper: CHEONJIIN_INITIAL_GROUP_MAP[group].join(" · "),
+        action: () => {
+          setSelectedCheonjiinInitialGroup(group);
+          setDirectStage("cheonjiin-initial-letters");
+        },
+      }));
+
+      radialItems.push(
+        {
+          direction: "e",
+          label: "지우기",
+          longAction: clearCurrentWorkZone,
+          helper: "마지막 자모 삭제",
+          action: deleteDirectCharacter,
+        },
+        {
+          direction: "sw",
+          label: "뒤로",
+          helper: "자유 입력 메뉴",
+          action: () => setDirectStage("root"),
+        },
+        {
+          direction: "s",
+          label: "띄어쓰기",
+          helper: "현재 입력 확정",
+          action: addSpace,
+        },
+        {
+          direction: "se",
+          label: "추천",
+          helper: "문장 추천 보기",
+          action: () => {
+            void loadDirectRecommendations();
+          },
+        }
+      );
+    }
+
+    if (
+      directStage === "cheonjiin-initial-letters" &&
+      selectedCheonjiinInitialGroup
+    ) {
+      const letters = CHEONJIIN_INITIAL_GROUP_MAP[selectedCheonjiinInitialGroup];
+
+      radialItems = letters.map((letter, index) => ({
+        direction: INPUT_DIRECTION_ORDER[index],
+        label: letter,
+        helper: DOUBLE_CONSONANT_MAP[letter]
+          ? "짧게: " + letter + " · 1.5초 이상: " + DOUBLE_CONSONANT_MAP[letter]
+          : "초성 선택",
+        action: () => selectDirectInitialLetter(letter, false),
+        longAction: DOUBLE_CONSONANT_MAP[letter]
+          ? () => selectDirectInitialLetter(letter, true)
+          : undefined,
+      }));
+
+      radialItems.push(
+        {
+          direction: "e",
+          label: "지우기",
+          longAction: clearCurrentWorkZone,
+          helper: "마지막 자모 삭제",
+          action: deleteDirectCharacter,
+        },
+        {
+          direction: "sw",
+          label: "그룹으로",
+          helper: "천지인 자음 그룹",
+          action: () => {
+            setSelectedCheonjiinInitialGroup(null);
+            setDirectStage("cheonjiin-initial-groups");
+          },
+        },
+        {
+          direction: "s",
+          label: "띄어쓰기",
+          helper: "현재 입력 확정",
+          action: addSpace,
+        },
+        {
+          direction: "se",
+          label: "추천",
+          helper: "문장 추천 보기",
+          action: () => {
+            void loadDirectRecommendations();
+          },
+        }
+      );
+    }
+
+    if (directStage === "cheonjiin-vowels") {
+      const resolvedVowel = CHEONJIIN_VOWEL_MAP[cheonjiinVowelSequence] ?? "";
+      const sequenceHelper = cheonjiinVowelSequence
+        ? `현재 ${cheonjiinVowelSequence}${resolvedVowel ? ` → ${resolvedVowel}` : ""}`
+        : "천 · 지 · 인 기본 획";
+
+      radialItems = [
+        {
+          direction: "nw",
+          label: "ㅣ",
+          helper: sequenceHelper,
+          action: () => appendCheonjiinVowelStroke("ㅣ"),
+        },
+        {
+          direction: "n",
+          label: "ㆍ",
+          helper: sequenceHelper,
+          action: () => appendCheonjiinVowelStroke("ㆍ"),
+        },
+        {
+          direction: "ne",
+          label: "ㅡ",
+          helper: sequenceHelper,
+          action: () => appendCheonjiinVowelStroke("ㅡ"),
+        },
+        {
+          direction: "e",
+          label: resolvedVowel ? `확정 ${resolvedVowel}` : "모음 초기화",
+          helper: resolvedVowel ? "현재 조합을 중성으로 입력" : "조합을 처음부터",
+          action: resolvedVowel
+            ? confirmCheonjiinVowel
+            : () => setCheonjiinVowelSequence(""),
+          tone: resolvedVowel ? "primary" : "normal",
+        },
+        {
+          direction: "w",
+          label: "한 획 지우기",
+          helper: "천지인 조합 한 단계 삭제",
+          action: () => {
+            if (cheonjiinVowelSequence) {
+              setCheonjiinVowelSequence((previous) => previous.slice(0, -1));
+            } else {
+              deleteDirectCharacter();
+            }
+          },
+        },
+        {
+          direction: "sw",
+          label: "뒤로",
+          helper: "현재 글자 상태로",
+          action: () => {
+            setCheonjiinVowelSequence("");
+            setDirectStage("root");
+          },
+        },
+        {
+          direction: "s",
+          label: "띄어쓰기",
+          helper: "현재 글자 확정",
+          action: addSpace,
+        },
+        {
+          direction: "se",
+          label: "추천",
+          helper: "문장 추천 보기",
+          action: () => {
+            void loadDirectRecommendations();
+          },
+        },
+      ];
     }
 
     if (directStage === "initial-groups") {
@@ -3016,6 +3387,53 @@ export default function Home() {
     }
   }
 
+  const fourWayEnabled = directionMode === "4" && screen !== "home" && screen !== "settings";
+  const fourWayUtilityItems = radialItems.filter(isFourWayUtilityItem);
+  const fourWayContentItems = radialItems.filter(
+    (item) => !isFourWayUtilityItem(item)
+  );
+  const fourWayHasUtilities = fourWayUtilityItems.length > 0;
+
+  const getFourWayItems = () => {
+    if (!fourWayEnabled) return radialItems;
+
+    const preferredSource = fourWayUtilityOpen
+      ? fourWayUtilityItems
+      : fourWayContentItems;
+    const source =
+      preferredSource.length > 0
+        ? preferredSource
+        : fourWayUtilityOpen
+          ? fourWayContentItems
+          : fourWayUtilityItems;
+
+    if (source.length <= 4) {
+      return source.map((item, index) => ({
+        ...item,
+        direction: FOUR_WAY_DIRECTIONS[index],
+      }));
+    }
+
+    const pageCount = Math.ceil(source.length / 3);
+    const safePage = fourWayPage % pageCount;
+    const start = safePage * 3;
+    const pageItems = source.slice(start, start + 3).map((item, index) => ({
+      ...item,
+      direction: FOUR_WAY_PAGED_DIRECTIONS[index],
+    }));
+
+    pageItems.push({
+      direction: "s",
+      label: safePage + 1 < pageCount ? "다음 페이지" : "첫 페이지",
+      helper: `${safePage + 1} / ${pageCount}`,
+      action: () => setFourWayPage((previous) => (previous + 1) % pageCount),
+    });
+
+    return pageItems;
+  };
+
+  const displayRadialItems = getFourWayItems();
+
   const interactionItems: RadialItem[] = dynamicInitialOverlay
     ? dynamicInitialOverlay.options.map((option) => ({
         direction: option.direction,
@@ -3024,13 +3442,16 @@ export default function Home() {
         action: option.action,
         longAction: option.longAction,
       }))
-    : radialItems;
+    : displayRadialItems;
 
   const radialItemsRef = useRef<RadialItem[]>(interactionItems);
   const activeDirectionRef = useRef<Direction | null>(activeDirection);
   const isRestingRef = useRef(isResting);
   const screenRef = useRef(screen);
   const inputModeRef = useRef(inputMode);
+  const directionModeRef = useRef(directionMode);
+  const fourWayHasUtilitiesRef = useRef(fourWayHasUtilities);
+  const dynamicOverlayOpenRef = useRef(Boolean(dynamicInitialOverlay));
   const selectedSentenceRef = useRef(selectedSentence);
   const directOutputRef = useRef(currentInputText);
 
@@ -3040,6 +3461,9 @@ export default function Home() {
     isRestingRef.current = isResting;
     screenRef.current = screen;
     inputModeRef.current = inputMode;
+    directionModeRef.current = directionMode;
+    fourWayHasUtilitiesRef.current = fourWayHasUtilities;
+    dynamicOverlayOpenRef.current = Boolean(dynamicInitialOverlay);
     selectedSentenceRef.current = selectedSentence;
     directOutputRef.current = currentInputText;
   });
@@ -3238,6 +3662,23 @@ export default function Home() {
             return;
           }
 
+          if (dynamicOverlayOpenRef.current) {
+            setSelectedInitialGroup(null);
+            setInitialStage("groups");
+            return;
+          }
+
+          if (
+            directionModeRef.current === "4" &&
+            screenRef.current !== "home" &&
+            screenRef.current !== "settings" &&
+            fourWayHasUtilitiesRef.current
+          ) {
+            setFourWayUtilityOpen((previous) => !previous);
+            setFourWayPage(0);
+            return;
+          }
+
           if (screenRef.current === "manual") {
             setManualMessage(
               "짧은 정면 깜빡임이 감지되었습니다. 휴식 전환은 Space를 1.5초 이상 길게 눌러주세요."
@@ -3336,7 +3777,9 @@ export default function Home() {
 
   useEffect(() => {
     clearDirectionSequence();
-  }, [screen, initialStage, englishInitialStage, directStage, inputMode]);
+    setFourWayUtilityOpen(false);
+    setFourWayPage(0);
+  }, [screen, initialStage, englishInitialStage, directStage, inputMode, directionMode]);
 
   const statusBox = (
     <div className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm">
@@ -3348,6 +3791,19 @@ export default function Home() {
       {" · "}
       <span className="font-semibold">상태:</span>{" "}
       {isResting ? "휴식" : "입력 가능"}
+      {screen !== "home" && screen !== "settings" && (
+        <>
+          {" · "}
+          <span className="font-semibold">방향:</span> {directionMode}방향
+          {screen === "free-input" && inputMode === "direct" && (
+            <>
+              {" · "}
+              <span className="font-semibold">한글:</span>{" "}
+              {koreanDirectLayout === "cheonjiin" ? "천지인" : "그룹 입력"}
+            </>
+          )}
+        </>
+      )}
     </div>
   );
 
@@ -3355,6 +3811,7 @@ export default function Home() {
     const categoryActive = activeDirection === "w";
     const inputActive = activeDirection === "e";
     const manualActive = activeDirection === "n";
+    const settingsActive = activeDirection === "ne";
     const emergencyDirections: Direction[] = ["sw", "s", "se"];
 
     const openManual = () => {
@@ -3388,6 +3845,7 @@ export default function Home() {
               </p>
             </div>
 
+            <div className="flex flex-wrap gap-2">
             <button
               type="button"
               disabled={isResting}
@@ -3401,6 +3859,23 @@ export default function Home() {
             >
               Demo 사용설명서 · ↑
             </button>
+            <button
+              type="button"
+              disabled={isResting}
+              onClick={() => {
+                setIsResting(false);
+                setScreen("settings");
+              }}
+              className={
+                "rounded-xl border px-4 py-2 text-sm font-semibold shadow-sm transition disabled:opacity-30 " +
+                (settingsActive
+                  ? "scale-105 border-slate-800 bg-slate-800 text-white"
+                  : "border-slate-300 bg-white text-slate-700 hover:border-slate-500")
+              }
+            >
+              ⚙ 설정 · ↑+→
+            </button>
+            </div>
           </header>
 
           {statusBox}
@@ -3519,6 +3994,104 @@ export default function Home() {
     );
   }
 
+  if (screen === "settings") {
+    return (
+      <main className="min-h-[100dvh] bg-slate-100 p-2 text-slate-900 sm:p-4 md:p-8">
+        <div className="mx-auto max-w-5xl">
+          <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-blue-600">GLIM-AAC SETTINGS</p>
+              <h1 className="mt-1 text-2xl font-bold sm:text-3xl">설정</h1>
+              <p className="mt-2 text-sm text-slate-500">
+                선택한 설정은 이 브라우저에 저장됩니다.
+              </p>
+            </div>
+            <HomeButton onClick={goHome} />
+          </header>
+
+          <section className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-sm font-semibold text-blue-600">DIRECTION LAYOUT</p>
+              <h2 className="mt-1 text-xl font-bold">입력 방향</h2>
+              <p className="mt-2 text-sm text-slate-500">
+                4방향은 상·하·좌·우만 사용합니다. 글자/문장을 우선 배치하고, 정면 짧은 blink 또는 Work Zone 클릭으로 기능 레이어를 엽니다.
+              </p>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                {(["8", "4"] as DirectionMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => {
+                      setDirectionMode(mode);
+                      setFourWayUtilityOpen(false);
+                      setFourWayPage(0);
+                    }}
+                    className={
+                      "touch-manipulation rounded-2xl border-2 p-4 text-left transition " +
+                      (directionMode === mode
+                        ? "border-blue-600 bg-blue-600 text-white"
+                        : "border-slate-200 bg-slate-50 text-slate-800")
+                    }
+                  >
+                    <span className="block text-2xl font-black">{mode}방향</span>
+                    <span className={
+                      "mt-1 block text-xs " +
+                      (directionMode === mode ? "text-blue-100" : "text-slate-500")
+                    }>
+                      {mode === "8" ? "상하좌우 + 대각선" : "상 · 하 · 좌 · 우"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-sm font-semibold text-blue-600">KOREAN DIRECT INPUT</p>
+              <h2 className="mt-1 text-xl font-bold">한글 자유 입력 방식</h2>
+              <p className="mt-2 text-sm text-slate-500">
+                현재는 완전 자유 입력 모드의 한글 초성·중성 입력에만 적용됩니다. 받침은 기존 그룹 방식을 유지합니다.
+              </p>
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setKoreanDirectLayout("group")}
+                  className={
+                    "touch-manipulation rounded-2xl border-2 p-4 text-left transition " +
+                    (koreanDirectLayout === "group"
+                      ? "border-blue-600 bg-blue-600 text-white"
+                      : "border-slate-200 bg-slate-50 text-slate-800")
+                  }
+                >
+                  <span className="block text-lg font-bold">기존 그룹 입력</span>
+                  <span className={
+                    "mt-1 block text-xs " +
+                    (koreanDirectLayout === "group" ? "text-blue-100" : "text-slate-500")
+                  }>ㄱ·ㅁ·ㅅ·ㅇ / ㅡ·ㅣ·ㅛ·ㅕ</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setKoreanDirectLayout("cheonjiin")}
+                  className={
+                    "touch-manipulation rounded-2xl border-2 p-4 text-left transition " +
+                    (koreanDirectLayout === "cheonjiin"
+                      ? "border-blue-600 bg-blue-600 text-white"
+                      : "border-slate-200 bg-slate-50 text-slate-800")
+                  }
+                >
+                  <span className="block text-lg font-bold">천지인 입력</span>
+                  <span className={
+                    "mt-1 block text-xs " +
+                    (koreanDirectLayout === "cheonjiin" ? "text-blue-100" : "text-slate-500")
+                  }>자음 그룹 + ㅣ · ㆍ · ㅡ 조합</span>
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    );
+  }
+
   if (screen === "manual") {
     return (
       <main className="min-h-[100dvh] bg-slate-100 p-2 text-slate-900 sm:p-4 md:p-8">
@@ -3554,6 +4127,7 @@ export default function Home() {
                     : "가운데 Zone을 터치하거나 클릭해 휴식 모드를 해제했습니다."
                 );
               }}
+              layoutMode={directionMode}
               onCenterLong={() => {
                 const nextResting = !isResting;
                 setIsResting(nextResting);
@@ -3571,8 +4145,9 @@ export default function Home() {
               <p className="text-sm font-semibold text-blue-600">눈 깜빡임</p>
               <p className="mt-2 text-2xl font-bold">Space</p>
               <p className="mt-3 text-sm text-slate-500">
-                한 방향은 방향키 1개를 누른 뒤 Space로 선택합니다. 대각선은
-                두 방향키를 순서대로 누른 뒤 Space로 선택합니다.
+                {directionMode === "4"
+                  ? "상·하·좌·우 방향키 1개를 누른 뒤 Space로 선택합니다."
+                  : "한 방향은 방향키 1개를 누른 뒤 Space로 선택합니다. 대각선은 두 방향키를 순서대로 누른 뒤 Space로 선택합니다."}
               </p>
             </div>
 
@@ -3621,6 +4196,21 @@ export default function Home() {
     workZoneText = recommendationError;
   } else if (selectedSentence) {
     workZoneText = selectedSentence;
+  } else if (
+    inputMode === "direct" &&
+    directStage === "cheonjiin-vowels" &&
+    cheonjiinVowelSequence
+  ) {
+    const resolved = CHEONJIIN_VOWEL_MAP[cheonjiinVowelSequence];
+    workZoneText = (
+      <div>
+        {currentInputSegments.length > 0 && renderInputSegments(currentInputSegments)}
+        <div className="mt-2 text-sm font-semibold text-blue-200">
+          천지인 모음: {cheonjiinVowelSequence}
+          {resolved ? ` → ${resolved}` : " · 조합 중"}
+        </div>
+      </div>
+    );
   } else if (currentInputSegments.length > 0) {
     workZoneText = renderInputSegments(currentInputSegments);
   } else if (inputMode === "initial") {
@@ -3639,7 +4229,9 @@ export default function Home() {
             <p className="text-sm font-semibold text-blue-600">GLIM-AAC DEMO</p>
             <h1 className="mt-1 text-2xl font-bold sm:text-3xl">{pageTitle}</h1>
             <p className="mt-2 text-sm text-slate-500">
-              방향키를 누른 뒤 Space를 누르면 선택됩니다. 대각선은 두 방향키를 순서대로 입력합니다.
+              {directionMode === "4"
+                ? "상·하·좌·우 방향키 + Space로 선택합니다. 정면 짧은 blink는 글자/기능 레이어를 전환합니다."
+                : "방향키를 누른 뒤 Space를 누르면 선택됩니다. 대각선은 두 방향키를 순서대로 입력합니다."}
             </p>
           </div>
           <HomeButton onClick={goHome} />
@@ -3649,16 +4241,24 @@ export default function Home() {
 
         <section className="mt-3 sm:mt-5">
           <RadialPad
-            items={radialItems}
+            items={displayRadialItems}
             activeDirection={activeDirection}
             isResting={isResting}
             isBlinkPressed={isBlinkPressed}
             centerText={workZoneText}
-            centerTitle="WORK / REST ZONE"
+            centerTitle={
+              fourWayEnabled && fourWayUtilityOpen
+                ? "FUNCTION LAYER"
+                : "WORK / REST ZONE"
+            }
             centerHelper={
-              selectedSentence
-                ? "Enter로 말하기 · Space를 1.5초 이상 길게 눌러 휴식 전환"
-                : "Space를 1.5초 이상 길게 눌러 휴식 전환"
+              fourWayEnabled
+                ? fourWayHasUtilities
+                  ? "짧은 정면 blink/클릭: 글자 ↔ 기능 · 1.5초 이상: 휴식"
+                  : "Space를 1.5초 이상 길게 눌러 휴식 전환"
+                : selectedSentence
+                  ? "Enter로 말하기 · Space를 1.5초 이상 길게 눌러 휴식 전환"
+                  : "Space를 1.5초 이상 길게 눌러 휴식 전환"
             }
             isSpeaking={isSpeaking}
             speakingDurationMs={speakingDurationMs}
@@ -3668,7 +4268,15 @@ export default function Home() {
             }
             dwellMs={1500}
             dynamicOverlay={dynamicInitialOverlay}
-            onCenter={() => setIsResting((previous) => !previous)}
+            layoutMode={fourWayEnabled ? "4" : "8"}
+            onCenter={() => {
+              if (fourWayEnabled && fourWayHasUtilities) {
+                setFourWayUtilityOpen((previous) => !previous);
+                setFourWayPage(0);
+                return;
+              }
+              setIsResting((previous) => !previous);
+            }}
             onCenterLong={() => setIsResting((previous) => !previous)}
           />
         </section>
@@ -3711,7 +4319,7 @@ export default function Home() {
         `}</style>
 
         <footer className="mt-5 text-center text-sm text-slate-500">
-          Gemini 추천 연결 · 외곽 버튼 클릭 가능 · 정면 Long blink는 휴식 전환 · Enter는 Converge
+          Gemini 추천 연결 · {directionMode}방향 입력 · 정면 Long blink는 휴식 전환 · Enter는 Converge
         </footer>
       </div>
     </main>
