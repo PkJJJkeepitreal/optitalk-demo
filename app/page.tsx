@@ -2440,8 +2440,11 @@ export default function Home() {
       const letters = FINAL_GROUP_MAP[selectedFinalGroup];
       const pageSize = 4;
       const pageStart = finalPage * pageSize;
-      const pageLetters = letters.slice(pageStart, pageStart + pageSize);
-      const hasNext = pageStart + pageSize < letters.length;
+      const remainingLetters = letters.slice(pageStart);
+      const pageLetters = remainingLetters.slice(0, pageSize);
+      const fifthFinal =
+        remainingLetters.length === 5 ? remainingLetters[4] : null;
+      const hasNext = remainingLetters.length > pageSize && !fifthFinal;
 
       radialItems = pageLetters.map((letter, index) => ({
         direction: INPUT_DIRECTION_ORDER[index],
@@ -2484,18 +2487,28 @@ export default function Home() {
             setDirectStage("final-groups");
           },
         },
-        {
-          direction: "se",
-          label: hasNext ? "다음" : "추천",
-          helper: hasNext ? "다음 받침" : "문장 추천",
-          action: () => {
-            if (hasNext) {
-              setFinalPage((previous) => previous + 1);
-            } else {
-              void loadDirectRecommendations();
+        fifthFinal
+          ? {
+              direction: "se",
+              label: fifthFinal,
+              helper:
+                fifthFinal.length > 1 ? "문맥 기반 복합 받침" : "받침 선택",
+              action: () => {
+                commitFinalAndReturnToStart(fifthFinal);
+              },
             }
-          },
-        }
+          : {
+              direction: "se",
+              label: hasNext ? "다음" : "추천",
+              helper: hasNext ? "다음 받침" : "문장 추천",
+              action: () => {
+                if (hasNext) {
+                  setFinalPage((previous) => previous + 1);
+                } else {
+                  void loadDirectRecommendations();
+                }
+              },
+            }
       );
     }
 
