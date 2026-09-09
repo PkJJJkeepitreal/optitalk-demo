@@ -1432,12 +1432,10 @@ export default function Home() {
   };
 
   const selectEnglishInitialLetter = (letter: string) => {
+    // English 자유 입력과 동일하게, 한 글자를 고른 뒤에도
+    // 현재 ESCG 알파벳 선택 화면을 유지합니다.
     setEnglishInitialInput((previous) => previous + letter.toUpperCase());
     setSelectedSentence("");
-    setSelectedEnglishInitialGroup(null);
-    setSelectedEnglishInitialGroup4Subgroup(null);
-    setEnglishInitialPage(0);
-    setEnglishInitialStage("groups");
   };
 
   const selectDirectInitialLetter = (letter: string, longBlink: boolean) => {
@@ -1812,12 +1810,17 @@ export default function Home() {
   }
 
   if (screen === "free-input" && inputMode === "english-initial") {
+    // English 초성 입력과 English 자유 입력은 같은 ESCG 그룹/알파벳 배치를 사용합니다.
+    // 차이는 선택한 알파벳을 "단어의 첫 글자"로 저장하느냐, 실제 철자로 저장하느냐뿐입니다.
     if (englishInitialStage === "groups") {
       const groups = Object.keys(ENGLISH_GROUP_MAP) as EnglishGroup[];
       radialItems = groups.map((group, index) => ({
         direction: INPUT_DIRECTION_ORDER[index],
         label: group,
-        helper: ENGLISH_GROUP_MAP[group].join(" · "),
+        helper:
+          group === "Group4"
+            ? "XQZ · BVKJ · FGYP의 3개 하위 그룹"
+            : ENGLISH_GROUP_MAP[group].join(" · "),
         action: () => {
           setSelectedEnglishInitialGroup(group);
           setSelectedEnglishInitialGroup4Subgroup(null);
@@ -1828,16 +1831,35 @@ export default function Home() {
 
       radialItems.push(
         {
-          direction: "e", label: "지우기", longAction: clearCurrentWorkZone, helper: "영어 초성 한 글자 삭제",
+          direction: "e",
+          label: "지우기",
+          longAction: clearCurrentWorkZone,
+          helper: "영어 초성 한 글자 삭제",
           action: () => {
             if (englishInitialInput) setEnglishInitialInput((previous) => previous.slice(0, -1));
             else setCommittedInputSegments((previous) => deleteLastInputSegmentCharacter(previous));
             setSelectedSentence("");
           },
         },
-        { direction: "sw", label: "완전 자유 입력", helper: "고유명사를 직접 입력", action: switchToDirectInput },
-        { direction: "s", label: "문장 추천", helper: "영어 초성으로 문장 완성", action: () => void loadEnglishInitialRecommendations(), tone: "primary" },
-        { direction: "se", label: "한글 초성 모드", helper: "현재 입력을 유지하고 전환", action: switchToInitialInput }
+        {
+          direction: "sw",
+          label: "English 자유 입력",
+          helper: "고유명사를 직접 입력",
+          action: switchToDirectInput,
+        },
+        {
+          direction: "s",
+          label: "한글 초성 입력",
+          helper: "현재 입력을 유지하고 전환",
+          action: switchToInitialInput,
+        },
+        {
+          direction: "se",
+          label: "추천",
+          helper: "영어 초성으로 문장 완성",
+          action: () => void loadEnglishInitialRecommendations(),
+          tone: "primary",
+        }
       );
     }
 
@@ -1854,56 +1876,114 @@ export default function Home() {
           setEnglishInitialStage("letters");
         },
       }));
+
       radialItems.push(
-        { direction: "e", label: "지우기", longAction: clearCurrentWorkZone, helper: "영어 초성 한 글자 삭제", action: () => {
+        {
+          direction: "e",
+          label: "지우기",
+          longAction: clearCurrentWorkZone,
+          helper: "영어 초성 한 글자 삭제",
+          action: () => {
             if (englishInitialInput) setEnglishInitialInput((previous) => previous.slice(0, -1));
             else setCommittedInputSegments((previous) => deleteLastInputSegmentCharacter(previous));
-          } },
-        { direction: "sw", label: "그룹으로", helper: "ESCG 그룹 선택", action: () => {
+            setSelectedSentence("");
+          },
+        },
+        {
+          direction: "sw",
+          label: "그룹으로",
+          helper: "ESCG 그룹 선택",
+          action: () => {
             setSelectedEnglishInitialGroup(null);
             setSelectedEnglishInitialGroup4Subgroup(null);
             setEnglishInitialStage("groups");
-          } },
-        { direction: "s", label: "문장 추천", helper: "영어 초성으로 문장 완성", action: () => void loadEnglishInitialRecommendations() },
-        { direction: "se", label: "완전 자유 입력", helper: "고유명사를 직접 입력", action: switchToDirectInput }
+          },
+        },
+        {
+          direction: "s",
+          label: "English 자유 입력",
+          helper: "고유명사를 직접 입력",
+          action: switchToDirectInput,
+        },
+        {
+          direction: "se",
+          label: "추천",
+          helper: "영어 초성으로 문장 완성",
+          action: () => void loadEnglishInitialRecommendations(),
+        }
       );
     }
 
     if (englishInitialStage === "letters" && selectedEnglishInitialGroup) {
-      const letters = selectedEnglishInitialGroup === "Group4" && selectedEnglishInitialGroup4Subgroup
-        ? ENGLISH_GROUP4_SUBGROUP_MAP[selectedEnglishInitialGroup4Subgroup]
-        : ENGLISH_GROUP_MAP[selectedEnglishInitialGroup];
-      const pageSize = 4;
-      const pageStart = englishInitialPage * pageSize;
-      const pageLetters = letters.slice(pageStart, pageStart + pageSize);
-      const hasNext = pageStart + pageSize < letters.length;
+      const letters =
+        selectedEnglishInitialGroup === "Group4" && selectedEnglishInitialGroup4Subgroup
+          ? ENGLISH_GROUP4_SUBGROUP_MAP[selectedEnglishInitialGroup4Subgroup]
+          : ENGLISH_GROUP_MAP[selectedEnglishInitialGroup];
 
-      radialItems = pageLetters.map((letter, index) => ({
+      // Group1~3은 5글자이므로 네 글자 + "다음" 대신
+      // 다섯 번째 글자(I 등)를 우하단 버튼에 바로 표시합니다.
+      const primaryLetters = letters.slice(0, 4);
+      const fifthLetter = letters.length === 5 ? letters[4] : undefined;
+
+      radialItems = primaryLetters.map((letter, index) => ({
         direction: INPUT_DIRECTION_ORDER[index],
         label: letter,
-        helper: "단어의 첫 글자",
+        helper:
+          selectedEnglishInitialGroup === "Group4" && selectedEnglishInitialGroup4Subgroup
+            ? selectedEnglishInitialGroup4Subgroup
+            : selectedEnglishInitialGroup,
         action: () => selectEnglishInitialLetter(letter),
       }));
+
       radialItems.push(
-        { direction: "e", label: "지우기", longAction: clearCurrentWorkZone, helper: "영어 초성 한 글자 삭제", action: () => {
+        {
+          direction: "e",
+          label: "지우기",
+          longAction: clearCurrentWorkZone,
+          helper: "영어 초성 한 글자 삭제",
+          action: () => {
             if (englishInitialInput) setEnglishInitialInput((previous) => previous.slice(0, -1));
             else setCommittedInputSegments((previous) => deleteLastInputSegmentCharacter(previous));
-          } },
-        { direction: "sw", label: englishInitialPage > 0 ? "이전" : "그룹으로", helper: englishInitialPage > 0 ? "이전 알파벳" : "ESCG 그룹 선택", action: () => {
-            if (englishInitialPage > 0) setEnglishInitialPage((previous) => Math.max(previous - 1, 0));
-            else if (selectedEnglishInitialGroup === "Group4") {
+            setSelectedSentence("");
+          },
+        },
+        {
+          direction: "sw",
+          label: "English 자유 입력",
+          helper: "고유명사를 직접 입력",
+          action: switchToDirectInput,
+        },
+        {
+          direction: "s",
+          label: "그룹으로",
+          helper:
+            selectedEnglishInitialGroup === "Group4"
+              ? "Group4 하위 그룹 선택"
+              : "ESCG 그룹 선택",
+          action: () => {
+            setEnglishInitialPage(0);
+            if (selectedEnglishInitialGroup === "Group4") {
               setSelectedEnglishInitialGroup4Subgroup(null);
               setEnglishInitialStage("group4-subgroups");
             } else {
               setSelectedEnglishInitialGroup(null);
               setEnglishInitialStage("groups");
             }
-          } },
-        { direction: "s", label: hasNext ? "다음" : "문장 추천", helper: hasNext ? "다음 알파벳" : "영어 문장 완성", action: () => {
-            if (hasNext) setEnglishInitialPage((previous) => previous + 1);
-            else void loadEnglishInitialRecommendations();
-          } },
-        { direction: "se", label: "완전 자유 입력", helper: "고유명사를 직접 입력", action: switchToDirectInput }
+          },
+        },
+        fifthLetter
+          ? {
+              direction: "se",
+              label: fifthLetter,
+              helper: selectedEnglishInitialGroup,
+              action: () => selectEnglishInitialLetter(fifthLetter),
+            }
+          : {
+              direction: "se",
+              label: "추천",
+              helper: "영어 초성으로 문장 완성",
+              action: () => void loadEnglishInitialRecommendations(),
+            }
       );
     }
 
@@ -1925,19 +2005,28 @@ export default function Home() {
         tone: selectedSentence === sentence ? "primary" : "normal",
       }));
       radialItems.push(
-        { direction: "s", label: "영어 초성 입력", helper: "입력 화면으로", action: () => {
+        {
+          direction: "s",
+          label: "English 초성 입력",
+          helper: "입력 화면으로",
+          action: () => {
             setSelectedSentence("");
             setRecommendedSentences([]);
             setRecommendationError("");
             setEnglishInitialStage("groups");
-          } },
-        { direction: "se", label: isRecommendationLoading ? "생성 중..." : selectedSentence ? "말하기" : "추천 새로고침",
+          },
+        },
+        {
+          direction: "se",
+          label: isRecommendationLoading ? "생성 중..." : selectedSentence ? "말하기" : "추천 새로고침",
           helper: isRecommendationLoading ? "Gemini 응답 대기" : selectedSentence ? "Enter · Converge" : "새 문장 6개 생성",
           action: () => {
             if (isRecommendationLoading) return;
             if (selectedSentence) speak(selectedSentence);
             else void loadEnglishInitialRecommendations();
-          }, tone: selectedSentence ? "primary" : "normal" }
+          },
+          tone: selectedSentence ? "primary" : "normal",
+        }
       );
     }
   }
@@ -1964,7 +2053,7 @@ export default function Home() {
           },
           {
             direction: "w",
-            label: "영어 초성 모드",
+            label: "English 초성 입력",
             helper: "단어 첫 글자 · ESCG 그룹",
             action: switchToEnglishInitialInput,
             tone: "primary",
@@ -2505,12 +2594,12 @@ export default function Home() {
           ? ENGLISH_GROUP4_SUBGROUP_MAP[selectedEnglishGroup4Subgroup]
           : ENGLISH_GROUP_MAP[selectedEnglishGroup];
 
-      const pageSize = 4;
-      const pageStart = englishPage * pageSize;
-      const pageLetters = letters.slice(pageStart, pageStart + pageSize);
-      const hasNext = pageStart + pageSize < letters.length;
+      // English 초성 입력과 동일한 알파벳 배치를 사용합니다.
+      // Group1~3의 다섯 번째 알파벳은 "다음"을 누르지 않고 우하단에 바로 표시합니다.
+      const primaryLetters = letters.slice(0, 4);
+      const fifthLetter = letters.length === 5 ? letters[4] : undefined;
 
-      radialItems = pageLetters.map((letter, index) => ({
+      radialItems = primaryLetters.map((letter, index) => ({
         direction: INPUT_DIRECTION_ORDER[index],
         label: letter,
         helper:
@@ -2530,15 +2619,9 @@ export default function Home() {
         },
         {
           direction: "sw",
-          label: englishPage > 0 ? "이전" : "띄어쓰기",
-          helper: englishPage > 0 ? "이전 알파벳" : "Space 입력",
-          action: () => {
-            if (englishPage > 0) {
-              setEnglishPage((previous) => Math.max(previous - 1, 0));
-            } else {
-              addSpace();
-            }
-          },
+          label: "띄어쓰기",
+          helper: "Space 입력",
+          action: addSpace,
         },
         {
           direction: "s",
@@ -2559,18 +2642,21 @@ export default function Home() {
             }
           },
         },
-        {
-          direction: "se",
-          label: hasNext ? "다음" : "추천",
-          helper: hasNext ? "다음 알파벳" : "문장 추천",
-          action: () => {
-            if (hasNext) {
-              setEnglishPage((previous) => previous + 1);
-            } else {
-              void loadDirectRecommendations();
+        fifthLetter
+          ? {
+              direction: "se",
+              label: fifthLetter,
+              helper: selectedEnglishGroup,
+              action: () => addEnglishLetter(fifthLetter),
             }
-          },
-        }
+          : {
+              direction: "se",
+              label: "추천",
+              helper: "문장 추천",
+              action: () => {
+                void loadDirectRecommendations();
+              },
+            }
       );
     }
 
