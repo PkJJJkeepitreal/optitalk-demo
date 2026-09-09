@@ -2318,6 +2318,10 @@ export default function Home() {
       const pageLetters = letters.slice(pageStart, pageStart + pageSize);
       const hasNext = pageStart + pageSize < letters.length;
 
+      // 모음이 정확히 5개인 그룹(ㅣ, ㅛ)은 English 그룹과 동일하게
+      // 첫 네 모음 + 다섯 번째 모음을 우하단에 바로 표시합니다.
+      const fifthVowel = vowelPage === 0 && letters.length === 5 ? letters[4] : undefined;
+
       radialItems = pageLetters.map((letter, index) => ({
         direction: INPUT_DIRECTION_ORDER[index],
         label: letter,
@@ -2360,18 +2364,30 @@ export default function Home() {
             setDirectStage("vowel-groups");
           },
         },
-        {
-          direction: "se",
-          label: hasNext ? "다음" : "추천",
-          helper: hasNext ? "다음 모음" : "문장 추천",
-          action: () => {
-            if (hasNext) {
-              setVowelPage((previous) => previous + 1);
-            } else {
-              void loadDirectRecommendations();
+        fifthVowel
+          ? {
+              direction: "se",
+              label: fifthVowel,
+              helper: "중성 모음",
+              action: () => {
+                addVowelToDirect(fifthVowel);
+                setSelectedVowelGroup(null);
+                setVowelPage(0);
+                setDirectStage("root");
+              },
             }
-          },
-        }
+          : {
+              direction: "se",
+              label: hasNext ? "다음" : "추천",
+              helper: hasNext ? "다음 모음" : "문장 추천",
+              action: () => {
+                if (hasNext) {
+                  setVowelPage((previous) => previous + 1);
+                } else {
+                  void loadDirectRecommendations();
+                }
+              },
+            }
       );
     }
 
