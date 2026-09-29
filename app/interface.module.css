@@ -57,6 +57,40 @@
 .centerBadge { color: #5c7666; font-size: 11px; letter-spacing: 1.2px; font-weight: 700; }
 .centerText { margin-top: 24px; max-width: 100%; white-space: pre-line; overflow-wrap: anywhere; font-size: clamp(19px, 2.8vw, 32px); font-weight: 600; line-height: 1.7; letter-spacing: -0.7px; }
 .centerHint { margin-top: 18px; font-size: 12px; color: #617b69; }
+.workspace { max-width: 1440px; margin: 0 auto; }
+.conversationLayout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+.conversationPanel { min-width: 0; margin-top: 12px; border: 1px solid #d5e0d5; border-radius: 22px; background: #fffefa; overflow: hidden; }
+.conversationHeading { padding: 18px 20px; cursor: pointer; font-weight: 700; font-size: 17px; }
+.conversationHeading span { margin-left: 8px; font-size: 12px; color: #64776e; }
+.conversationBody { padding: 0 16px 16px; }
+.panelNote { color: #66766d; font-size: 12px; line-height: 1.6; }
+.messageList { max-height: 310px; overflow-y: auto; overscroll-behavior: contain; padding: 12px 2px; }
+.emptyConversation { padding: 32px 0; color: #7d8b80; text-align: center; font-size: 13px; line-height: 1.9; }
+.message { margin: 0 20px 12px 0; padding: 12px; border-radius: 4px 16px 16px 16px; background: #f0f0e8; }
+.message[data-role="self"] { margin: 0 0 12px 20px; border-radius: 16px 4px 16px 16px; background: #e6f1e9; }
+.message p { margin: 10px 0; line-height: 1.7; font-size: 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.messageMeta, .messageActions { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 10px; color: #617267; }
+.messageActions button { padding: 6px 0 6px 6px; color: #286d5e; font-size: 11px; font-weight: 650; }
+.partnerForm { display: grid; gap: 8px; border-top: 1px solid #e1e7dd; padding-top: 16px; font-size: 13px; }
+.partnerForm textarea, .sentenceEditor textarea { width: 100%; resize: vertical; min-height: 72px; border: 1px solid #becfc1; border-radius: 12px; padding: 12px; background: #fff; color: #203a38; font: inherit; line-height: 1.7; }
+.partnerForm textarea:focus-visible, .sentenceEditor textarea:focus-visible { outline: 2px solid #27705b; outline-offset: 2px; }
+.panelToggle { display: flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 8px; font-size: 12px; }
+.panelToggle input { accent-color: #286d5e; width: 16px; height: 16px; }
+.textButton { font-size: 12px; color: #66766d; padding: 12px 0 0; text-decoration: underline; text-underline-offset: 3px; }
+.clearActions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; font-size: 12px; }
+.clearActions button { color: #884d3c; font-weight: 700; }
+.conversationTools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.conversationTools button { min-height: 42px; padding: 8px 14px; border: 1px solid #ccdacc; border-radius: 12px; background: #fffefa; font-size: 13px; font-weight: 650; }
+.conversationTools button[data-active="true"], .conversationTools .speakButton { background: #286d5e; color: #fff; border-color: #286d5e; }
+.typingIndicator { padding: 10px 14px; border-radius: 12px; background: #e1eee4; color: #315b48; font-size: 14px; margin-bottom: 12px; }
+.sentenceEditor { padding: 16px; background: #eaf1e7; border: 1px solid #ccdacc; border-radius: 16px; margin: 12px 0; }
+.sentenceEditor label { display: block; font-weight: 700; margin-bottom: 10px; }
+.speechError { margin: 12px 0; padding: 12px; border-radius: 12px; background: #fcf1eb; color: #884d3c; font-size: 13px; }
+
+@media (max-width: 1050px) {
+  .conversationLayout { grid-template-columns: minmax(0, 1fr); }
+  .messageList { max-height: 260px; }
+}
 
 @media (min-width: 641px) and (max-height: 850px) {
   .shell { padding: 24px 36px; }
@@ -77,6 +111,10 @@
   .pad { padding: 12px; }
   .slot { min-height: 72px; padding: 10px; }
   .center { min-height: clamp(160px, 28vh, 240px); }
+  .messageList { max-height: 180px; }
+  .conversationHeading { padding: 14px 16px; }
+  .partnerForm { padding-top: 10px; }
+  .partnerForm textarea { min-height: 60px; }
 }
 
 @media (max-width: 640px) {

@@ -9,6 +9,10 @@ import {
   type ReactNode,
 } from "react";
 import styles from "./interface.module.css";
+import { ConversationPanel } from "./conversation-panel";
+import { useConversation } from "./use-conversation";
+import { useSpeech } from "./use-speech";
+import { getRecommendationContext } from "./conversation-model";
 
 type Screen =
   | "home"
@@ -477,12 +481,6 @@ function renderInputSegments(segments: InputSegment[]): ReactNode {
   ));
 }
 
-function getSpeechLanguage(text: string): "ko-KR" | "en-US" {
-  const hangul = (text.match(/[가-힣ㄱ-ㅎㅏ-ㅣ]/g) ?? []).length;
-  const english = (text.match(/[A-Za-z]/g) ?? []).length;
-  return english > hangul ? "en-US" : "ko-KR";
-}
-
 function composeSyllable(syllable: SyllableState): string {
   if (!syllable.initial && !syllable.vowel && !syllable.final) {
     return "";
@@ -546,6 +544,7 @@ function HomeButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
+      data-native-controls
       onClick={onClick}
       className={styles.navButton}
     >
@@ -1159,10 +1158,12 @@ export default function Home() {
   const [manualMessage, setManualMessage] = useState(
     "방향키를 순서대로 누른 뒤 Space를 눌러보세요."
   );
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [speakingDurationMs, setSpeakingDurationMs] = useState(2600);
-  const [speechAnimationKey, setSpeechAnimationKey] = useState(0);
-  const speakingTimerRef = useRef<number | null>(null);
+  const messages = useConversation();
+  const { speak, stopSpeech, isSpeaking, speechError, speakingDurationMs, speechAnimationKey } = useSpeech();
+  const [shareContext, setShareContext] = useState(false);
+  const [showTyping, setShowTyping] = useState(false);
+  const [quickRepliesOpen, setQuickRepliesOpen] = useState(false);
+  const [editingSentence, setEditingSentence] = useState<string | null>(null);
   const convergeSpeakRef = useRef<(text: string) => void>(() => undefined);
 
   const activeDirection = useMemo(
@@ -1277,18 +1278,6 @@ export default function Home() {
     setRecommendationError("");
   }, [currentInputText, inputMode]);
 
-  const speak = (text: string) => {
-    if (!text || typeof window === "undefined") return;
-
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = getSpeechLanguage(text);
-    utterance.rate = 0.9;
-
-    window.speechSynthesis.speak(utterance);
-  };
-
   const clearCurrentWorkZone = () => {
     setSelectedSentence("");
     setRecommendedSentences([]);
@@ -1341,74 +1330,12 @@ export default function Home() {
     }
   };
 
-  const convergeSpeak = (text: string) => {
-    const trimmed = text.trim();
-
-    if (!trimmed || typeof window === "undefined") return;
-
-    if (speakingTimerRef.current !== null) {
-      window.clearTimeout(speakingTimerRef.current);
-      speakingTimerRef.current = null;
-    }
-
-    window.speechSynthesis.cancel();
-
-    const duration = Math.min(
-      4600,
-      Math.max(2200, 1900 + trimmed.length * 55)
-    );
-
-    const startedAt = Date.now();
-    let completed = false;
-
-    setSpeakingDurationMs(duration);
-    setSpeechAnimationKey((previous) => previous + 1);
-    setIsSpeaking(true);
-
-    const completeAfterMinimumDuration = () => {
-      if (completed) return;
-      completed = true;
-
-      const elapsed = Date.now() - startedAt;
-      const remaining = Math.max(0, duration - elapsed);
-
-      speakingTimerRef.current = window.setTimeout(() => {
-        setIsSpeaking(false);
-        clearCurrentWorkZone();
-        speakingTimerRef.current = null;
-      }, remaining);
-    };
-
-    const utterance = new SpeechSynthesisUtterance(trimmed);
-    utterance.lang = getSpeechLanguage(trimmed);
-    utterance.rate = 0.9;
-    utterance.onend = completeAfterMinimumDuration;
-    utterance.onerror = completeAfterMinimumDuration;
-
-    window.speechSynthesis.speak(utterance);
-
-    speakingTimerRef.current = window.setTimeout(
-      completeAfterMinimumDuration,
-      duration + 1800
-    );
-  };
-
-  convergeSpeakRef.current = convergeSpeak;
-
-  const stopSpeech = () => {
-    if (typeof window !== "undefined") {
-      window.speechSynthesis.cancel();
-
-      if (speakingTimerRef.current !== null) {
-        window.clearTimeout(speakingTimerRef.current);
-        speakingTimerRef.current = null;
-      }
-    }
-
-    setIsSpeaking(false);
-  };
+  // Every explicit utterance follows one path; speaking never destroys the draft.
+  convergeSpeakRef.current = speak;
 
   const resetAllInput = () => {
+    setQuickRepliesOpen(false);
+    setEditingSentence(null);
     setCommittedInputSegments([]);
     setSelectedSentence("");
     setRecommendedSentences([]);
@@ -1633,6 +1560,7 @@ export default function Home() {
         input,
         mode,
         segments,
+        context: shareContext ? getRecommendationContext(messages) : [],
       }),
     });
 
@@ -2118,7 +2046,7 @@ export default function Home() {
             direction: overlayDirections[index],
             label: letter,
             helper: DOUBLE_CONSONANT_MAP[letter]
-              ? `쌍자음 ${DOUBLE_CONSONANT_MAP[letter]}`
+              ? DOUBLE_CONSONANT_MAP[letter]
               : undefined,
             action: () => selectInitialLetter(letter, false),
             longAction: DOUBLE_CONSONANT_MAP[letter]
@@ -2590,7 +2518,7 @@ export default function Home() {
         direction: INPUT_DIRECTION_ORDER[index],
         label: letter,
         helper: DOUBLE_CONSONANT_MAP[letter]
-          ? "쌍자음 " + DOUBLE_CONSONANT_MAP[letter]
+          ? DOUBLE_CONSONANT_MAP[letter]
           : undefined,
         action: () => selectDirectInitialLetter(letter, false),
         longAction: DOUBLE_CONSONANT_MAP[letter]
@@ -2742,7 +2670,7 @@ export default function Home() {
         direction: INPUT_DIRECTION_ORDER[index],
         label: letter,
         helper: DOUBLE_CONSONANT_MAP[letter]
-          ? "쌍자음 " + DOUBLE_CONSONANT_MAP[letter]
+          ? DOUBLE_CONSONANT_MAP[letter]
           : undefined,
         action: () => selectDirectInitialLetter(letter, false),
         longAction: DOUBLE_CONSONANT_MAP[letter]
@@ -3287,6 +3215,16 @@ export default function Home() {
     }
   }
 
+  if (quickRepliesOpen) {
+    dynamicInitialOverlay = null;
+    radialItems = [
+      { direction: "n", label: "네", action: () => speak("네.") },
+      { direction: "e", label: "아니요", action: () => speak("아니요.") },
+      { direction: "w", label: "잠깐만요", action: () => speak("잠깐만요.") },
+      { direction: "s", label: "계속 쓰기", action: () => setQuickRepliesOpen(false) },
+    ];
+  }
+
   const fourWayEnabled = directionMode === "4" && screen !== "home" && screen !== "settings";
   const fourWayUtilityItems = radialItems.filter(isFourWayUtilityItem);
   const fourWayContentItems = radialItems.filter(
@@ -3295,7 +3233,7 @@ export default function Home() {
   const fourWayHasUtilities = fourWayUtilityItems.length > 0;
 
   const getFourWayItems = () => {
-    if (!fourWayEnabled) return radialItems;
+    if (quickRepliesOpen || !fourWayEnabled) return radialItems;
 
     const preferredSource = fourWayUtilityOpen
       ? fourWayUtilityItems
@@ -3364,8 +3302,8 @@ export default function Home() {
     directionModeRef.current = directionMode;
     fourWayHasUtilitiesRef.current = fourWayHasUtilities;
     dynamicOverlayOpenRef.current = Boolean(dynamicInitialOverlay);
-    selectedSentenceRef.current = selectedSentence;
-    directOutputRef.current = currentInputText;
+    selectedSentenceRef.current = quickRepliesOpen ? "" : selectedSentence;
+    directOutputRef.current = quickRepliesOpen ? "" : currentInputText;
   });
 
   const blinkStartRef = useRef<number | null>(null);
@@ -3442,7 +3380,19 @@ export default function Home() {
   };
 
   useEffect(() => {
+    const nativeControl = (target: EventTarget | null) =>
+      target instanceof HTMLElement && Boolean(target.closest("[data-native-controls], input, textarea, select, [contenteditable=true]"));
+    const usesNativeKeyboard = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return false;
+      if (target.closest("input, textarea, select, [contenteditable=true]")) return true;
+      if (!nativeControl(target)) return false;
+      // Native buttons retain Enter/Space activation, while arrows can start AAC selection.
+      return !event.key.startsWith("Arrow") && !(event.code === "Space" && directionSequenceRef.current.length > 0);
+    };
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (usesNativeKeyboard(event)) return;
+      if (isRestingRef.current && event.code !== "Space") return;
       if (
         event.key === "ArrowUp" ||
         event.key === "ArrowDown" ||
@@ -3525,6 +3475,7 @@ export default function Home() {
     };
 
     const handleKeyUp = (event: KeyboardEvent) => {
+      if (usesNativeKeyboard(event)) return;
       if (
         event.key === "ArrowUp" ||
         event.key === "ArrowDown" ||
@@ -3618,11 +3569,14 @@ export default function Home() {
       blinkStartRef.current = null;
     };
 
+    const handleFocus = (event: FocusEvent) => { if (nativeControl(event.target)) handleBlur(); };
+    window.addEventListener("focusin", handleFocus);
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
     window.addEventListener("blur", handleBlur);
 
     return () => {
+      window.removeEventListener("focusin", handleFocus);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("blur", handleBlur);
@@ -3633,7 +3587,7 @@ export default function Home() {
 
   useEffect(() => {
     const longGazeEnabled =
-      screen === "free-input" && inputMode === "initial";
+      !quickRepliesOpen && screen === "free-input" && inputMode === "initial";
 
     if (
       !longGazeEnabled ||
@@ -3673,13 +3627,14 @@ export default function Home() {
     inputMode,
     initialStage,
     selectedInitialGroup,
+    quickRepliesOpen,
   ]);
 
   useEffect(() => {
     clearDirectionSequence();
     setFourWayUtilityOpen(false);
     setFourWayPage(0);
-  }, [screen, initialStage, englishInitialStage, directStage, inputMode, directionMode]);
+  }, [screen, initialStage, englishInitialStage, directStage, inputMode, directionMode, quickRepliesOpen]);
 
   const statusBox = (
     <div className={styles.status}>
@@ -3722,7 +3677,7 @@ export default function Home() {
               <span className={styles.brandMark}><InterfaceIcon name="spark" /></span>
               <span className={styles.brandName}>Glim<span className="font-normal text-[#789184]"> · AAC</span></span>
             </div>
-            <nav className={styles.nav} aria-label="도움말과 설정">
+            <nav className={styles.nav} aria-label="도움말과 설정" data-native-controls>
               <button type="button" disabled={isResting} onClick={openManual} className={styles.navButton} data-active={manualActive}><InterfaceIcon name="guide" />사용설명서</button>
               <button type="button" disabled={isResting} onClick={() => { setIsResting(false); setScreen("settings"); }} className={styles.navButton} data-active={settingsActive}><InterfaceIcon name="settings" />설정</button>
             </nav>
@@ -3758,6 +3713,7 @@ export default function Home() {
             </div>
           </section>
           <button type="button" onClick={toggleRestFromHome} className={styles.rest} data-active={isResting || (!activeDirection && isBlinkPressed)}><InterfaceIcon name="pause" />{isResting ? "휴식 마치기" : "잠시 쉬기"}</button>
+          <ConversationPanel messages={messages} onSpeak={speak} disabled={isResting} shareContext={shareContext} onShareContext={setShareContext} compact />
           <footer className={styles.footer}><span>GLIM · AAC</span><span>나의 속도로, 나의 목소리로</span></footer>
         </div>
       </main>
@@ -3766,7 +3722,7 @@ export default function Home() {
 
   if (screen === "settings") {
     return (
-      <main className={styles.shell}>
+      <main className={styles.shell} data-native-controls>
         <div className="mx-auto max-w-5xl">
           <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -3993,7 +3949,7 @@ export default function Home() {
 
   return (
     <main className={styles.shell}>
-      <div className={styles.container}>
+      <div className={styles.workspace}>
         <header className="mb-3 flex flex-wrap items-end justify-between gap-3 sm:mb-5 sm:gap-4">
           <div>
             <p className="text-sm font-semibold text-teal-600">GLIM · AAC</p>
@@ -4005,29 +3961,47 @@ export default function Home() {
 
         {statusBox}
 
+        <div className={styles.conversationLayout}>
+        <div className="min-w-0">
+          <div className={styles.conversationTools} data-native-controls>
+            <button type="button" disabled={isResting} data-active={quickRepliesOpen} onClick={() => setQuickRepliesOpen(previous => !previous)}>{quickRepliesOpen ? "계속 쓰기" : "빠른 응답"}</button>
+            <button type="button" disabled={isResting || !(selectedSentence || (inputMode === "direct" && currentInputText))} onClick={() => setEditingSentence(selectedSentence || currentInputText)}>문장 수정</button>
+            <button type="button" className={styles.speakButton} disabled={isResting || !(selectedSentence || (inputMode === "direct" && currentInputText))} onClick={() => speak(selectedSentence || currentInputText)}>말하기</button>
+            {screen === "free-input" && <button type="button" disabled={isResting || isRecommendationLoading || !currentInputText.trim()} onClick={() => { setQuickRepliesOpen(false); void (inputMode === "direct" ? loadDirectRecommendations() : inputMode === "english-initial" ? loadEnglishInitialRecommendations() : loadInitialRecommendations()); }}>{isRecommendationLoading ? "추천 생성 중" : "새 추천"}</button>}
+            {isSpeaking && <button type="button" onClick={stopSpeech}>음성 멈추기</button>}
+            <button type="button" aria-pressed={showTyping} data-active={showTyping} onClick={() => setShowTyping(previous => !previous)}>작성 중 표시</button>
+          </div>
+          {showTyping && (currentInputText || selectedSentence) && <p className={styles.typingIndicator} role="status">말을 작성하고 있어요. 잠시 기다려 주세요.</p>}
+          {speechError && <p className={styles.speechError} role="alert">{speechError}</p>}
+          {editingSentence !== null && <form className={styles.sentenceEditor} data-native-controls onSubmit={event => { event.preventDefault(); if (!editingSentence.trim() || isResting) return; setSelectedSentence(editingSentence.trim()); setEditingSentence(null); }}>
+            <label htmlFor="sentence-edit">전하고 싶은 문장</label>
+            <textarea id="sentence-edit" value={editingSentence} onChange={event => setEditingSentence(event.target.value)} maxLength={500} rows={3} disabled={isResting} />
+            <div className={styles.conversationTools}><button type="submit" disabled={isResting || !editingSentence.trim()}>수정 적용</button><button type="button" onClick={() => setEditingSentence(null)}>취소</button></div>
+          </form>}
         <section className="mt-3 sm:mt-5">
           <RadialPad
             items={displayRadialItems}
             activeDirection={activeDirection}
             isResting={isResting}
             isBlinkPressed={isBlinkPressed}
-            centerText={workZoneText}
+            centerText={quickRepliesOpen ? "짧게 답하고, 이어서 쓰세요." : workZoneText}
             centerTitle={
-              fourWayEnabled && fourWayUtilityOpen
+              quickRepliesOpen ? "빠른 응답" : fourWayEnabled && fourWayUtilityOpen
                 ? "기능"
                 : "나의 문장"
             }
-            centerHelper={fourWayEnabled && fourWayHasUtilities ? (fourWayUtilityOpen ? "기능 선택" : "글자 · 문장 선택") : undefined}
+            centerHelper={!quickRepliesOpen && fourWayEnabled && fourWayHasUtilities ? (fourWayUtilityOpen ? "기능 선택" : "글자 · 문장 선택") : undefined}
             isSpeaking={isSpeaking}
             speakingDurationMs={speakingDurationMs}
             speechAnimationKey={speechAnimationKey}
             enableDwellSelection={
-              screen === "free-input" && inputMode === "initial"
+              !quickRepliesOpen && screen === "free-input" && inputMode === "initial"
             }
             dwellMs={1500}
             dynamicOverlay={dynamicInitialOverlay}
-            layoutMode={fourWayEnabled ? "4" : "8"}
+            layoutMode={quickRepliesOpen || fourWayEnabled ? "4" : "8"}
             onCenter={() => {
+              if (quickRepliesOpen) { setQuickRepliesOpen(false); return; }
               if (fourWayEnabled && fourWayHasUtilities) {
                 setFourWayUtilityOpen((previous) => !previous);
                 setFourWayPage(0);
@@ -4038,6 +4012,9 @@ export default function Home() {
             onCenterLong={() => setIsResting((previous) => !previous)}
           />
         </section>
+        </div>
+        <ConversationPanel messages={messages} onSpeak={speak} disabled={isResting} shareContext={shareContext} onShareContext={setShareContext} />
+        </div>
 
         <style jsx global>{`
           html {
