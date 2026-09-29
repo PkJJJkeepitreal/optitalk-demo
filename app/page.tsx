@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -9,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import styles from "./interface.module.css";
-import { GestureGuide } from "./gesture-guide";
+import { GestureGuide, type Gesture } from "./gesture-guide";
 import { createBlinkSequence } from "./blink-sequence";
 import { ConversationPanel } from "./conversation-panel";
 import { useConversation } from "./use-conversation";
@@ -592,6 +593,38 @@ function RadialPad({
   layoutMode?: DirectionMode;
 }) {
   const pointerStartRef = useRef<Partial<Record<Direction, number>>>({});
+  const padRef = useRef<HTMLDivElement>(null);
+  const wheelRef = useRef<HTMLDivElement>(null);
+  const slotRefs = useRef<Partial<Record<Direction, HTMLButtonElement | null>>>({});
+  const anchorDirection = dynamicOverlay?.anchorDirection;
+
+  useLayoutEffect(() => {
+    if (!anchorDirection) return;
+    const positionWheel = () => {
+      const pad = padRef.current;
+      const wheel = wheelRef.current;
+      const anchor = slotRefs.current[anchorDirection];
+      if (!pad || !wheel || !anchor) return;
+      const bounds = pad.getBoundingClientRect();
+      const target = anchor.getBoundingClientRect();
+      const half = wheel.offsetWidth / 2;
+      // Stay centered on the chosen group; only shift at viewport edges.
+      const x = Math.max(half + 10, Math.min(document.documentElement.clientWidth - half - 10, target.left + target.width / 2));
+      const y = Math.max(half + 10, Math.min(window.innerHeight - half - 10, target.top + target.height / 2));
+      wheel.style.left = `${x - bounds.left - pad.clientLeft}px`;
+      wheel.style.top = `${y - bounds.top - pad.clientTop}px`;
+    };
+    positionWheel();
+    const observer = new ResizeObserver(positionWheel);
+    if (padRef.current) observer.observe(padRef.current);
+    window.addEventListener("resize", positionWheel);
+    window.addEventListener("scroll", positionWheel, true);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", positionWheel);
+      window.removeEventListener("scroll", positionWheel, true);
+    };
+  }, [anchorDirection, layoutMode]);
   const pointerLongReadyTimerRef = useRef<
     Partial<Record<Direction, ReturnType<typeof setTimeout>>>
   >({});
@@ -838,6 +871,7 @@ function RadialPad({
     return (
       <button
         key={direction}
+        ref={element => { slotRefs.current[direction] = element; }}
         type="button"
         disabled={isResting}
         onClick={() => {
@@ -897,6 +931,7 @@ function RadialPad({
         />
 
         <div
+          ref={wheelRef}
           className={
             styles.initialWheel
           }
@@ -988,7 +1023,7 @@ function RadialPad({
   const centerIsPressed = !activeDirection && isBlinkPressed;
 
   return (
-    <div className={"relative " + styles.pad}>
+    <div ref={padRef} className={"relative " + styles.pad}>
       <div className="space-y-2 sm:space-y-3">
         {layoutMode === "8" ? (
           <div className="grid grid-cols-3 gap-2 sm:gap-3">
@@ -1138,6 +1173,14 @@ export default function Home() {
   const [manualMessage, setManualMessage] = useState(
     "방향키를 순서대로 누른 뒤 Space를 눌러보세요."
   );
+  const [manualGesture, setManualGesture] = useState<Gesture | null>(null);
+  const manualGestureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const manualLongTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashManualGesture = (gesture: Gesture) => {
+    if (manualGestureTimerRef.current !== null) clearTimeout(manualGestureTimerRef.current);
+    setManualGesture(gesture);
+    manualGestureTimerRef.current = setTimeout(() => { setManualGesture(null); manualGestureTimerRef.current = null; }, 700);
+  };
   const messages = useConversation();
   const { speak, stopSpeech, isSpeaking, speechError, speakingDurationMs, speechAnimationKey } = useSpeech();
   const [shareContext, setShareContext] = useState(false);
@@ -1804,6 +1847,7 @@ export default function Home() {
   };
 
   const handleManualDirection = (direction: Direction, longBlink: boolean) => {
+    flashManualGesture(longBlink ? "long" : "blink");
     setManualSelectedDirection(direction);
     setManualMessage(
       DIRECTION_LABEL[direction] +
@@ -3304,6 +3348,7 @@ export default function Home() {
     gestureActionRef.current = (gesture) => {
       clearDirectionSequence();
       if (screen === "manual") {
+        flashManualGesture(gesture);
         const descriptions = { double: ["더블 블링크", "Space 두 번"], frown: ["강하게 찡그림", "Enter"], brows: ["눈썹 올리기", "R"], left: ["왼쪽 윙크", "C"], right: ["오른쪽 윙크", "M"] };
         const [name, key] = descriptions[gesture];
         setManualMessage(name + " 동작이 감지되었습니다.\n\n" + key + " 입력입니다.");
@@ -3457,6 +3502,12 @@ export default function Home() {
         event.preventDefault();
         blinkStartRef.current = Date.now();
         restHoldTriggeredRef.current = false;
+        if (screenRef.current === "manual") {
+          if (manualGestureTimerRef.current !== null) clearTimeout(manualGestureTimerRef.current);
+          if (manualLongTimerRef.current !== null) clearTimeout(manualLongTimerRef.current);
+          setManualGesture("blink");
+          manualLongTimerRef.current = setTimeout(() => { setManualGesture("long"); manualLongTimerRef.current = null; }, 1500);
+        }
 
         // Space도 새로운 입력이므로 선택 중에는
         // 1.5초 방향 초기화 타이머를 잠시 중단합니다.
@@ -3519,6 +3570,8 @@ export default function Home() {
         if (startedAt === null) return;
         const duration = Date.now() - startedAt;
         const longBlink = duration >= 1500;
+        if (manualLongTimerRef.current !== null) { clearTimeout(manualLongTimerRef.current); manualLongTimerRef.current = null; }
+        if (screenRef.current === "manual") flashManualGesture(longBlink ? "long" : "blink");
 
         blinkStartRef.current = null;
         setIsBlinkPressed(false);
@@ -3589,6 +3642,9 @@ export default function Home() {
     };
 
     const handleBlur = () => {
+      if (manualGestureTimerRef.current !== null) clearTimeout(manualGestureTimerRef.current);
+      if (manualLongTimerRef.current !== null) clearTimeout(manualLongTimerRef.current);
+      setManualGesture(null);
       shortBlink.cancel();
       clearDirectionSequence();
       clearRestHoldTimer();
@@ -3606,6 +3662,8 @@ export default function Home() {
 
     return () => {
       shortBlink.cancel();
+      if (manualGestureTimerRef.current !== null) clearTimeout(manualGestureTimerRef.current);
+      if (manualLongTimerRef.current !== null) clearTimeout(manualLongTimerRef.current);
       window.removeEventListener("focusin", handleFocus);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
@@ -3902,7 +3960,7 @@ export default function Home() {
             />
           </section>
 
-          <GestureGuide />
+          <GestureGuide activeGesture={manualGesture} />
         </div>
       </main>
     );

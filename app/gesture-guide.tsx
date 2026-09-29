@@ -1,6 +1,6 @@
 import styles from "./interface.module.css";
 
-type Gesture = "blink" | "long" | "double" | "left" | "right" | "frown" | "brows";
+export type Gesture = "blink" | "long" | "double" | "left" | "right" | "frown" | "brows";
 
 function FaceIcon({ gesture }: { gesture: Gesture }) {
   const closed = ["blink", "long", "double", "frown"].includes(gesture);
@@ -25,9 +25,9 @@ const gestures: { gesture: Gesture; label: string; key: string; description: str
   { gesture: "brows", label: "눈썹 올리기", key: "R", description: "대화 기록을 열거나 닫습니다.\n\n작성 중인 내용은 유지됩니다." },
 ];
 
-export function GestureGuide() {
+export function GestureGuide({ activeGesture }: { activeGesture: Gesture | null }) {
   return <section className={styles.gestureGuide} aria-label="동작별 입력 키">
-    {gestures.map(item => <article key={item.gesture} className={styles.gestureCard}>
+    {gestures.map(item => <article key={item.gesture} className={styles.gestureCard} data-gesture={item.gesture} data-active={activeGesture === item.gesture}>
       <div className={styles.gestureIcon}><FaceIcon gesture={item.gesture} /></div>
       <h2>{item.label}</h2><kbd>{item.key}</kbd><p>{item.description}</p>
     </article>)}
