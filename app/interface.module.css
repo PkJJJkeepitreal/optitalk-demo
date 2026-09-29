@@ -121,6 +121,7 @@
 .conversationTools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
 .conversationTools button { min-height: 42px; padding: 8px 14px; border: 1px solid #ccdacc; border-radius: 12px; background: #fffefa; font-size: 13px; font-weight: 650; }
 .conversationTools button[data-active="true"], .conversationTools .speakButton { background: #286d5e; color: #fff; border-color: #286d5e; }
+.conversationTools button[data-wink-selected="true"] { outline: 3px solid #286d5e; outline-offset: 3px; box-shadow: 0 0 0 6px #e0eee6; background: #d3e9dc; color: #174f43; }
 .typingIndicator { padding: 10px 14px; border-radius: 12px; background: #e1eee4; color: #315b48; font-size: 14px; margin-bottom: 12px; }
 .sentenceEditor { padding: 16px; background: #eaf1e7; border: 1px solid #ccdacc; border-radius: 16px; margin: 12px 0; }
 .sentenceEditor label { display: block; font-weight: 700; margin-bottom: 10px; }

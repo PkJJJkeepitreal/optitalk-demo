@@ -11,6 +11,7 @@ import {
 } from "react";
 import styles from "./interface.module.css";
 import { GestureGuide, type Gesture } from "./gesture-guide";
+import { useWinkToolbar } from "./use-wink-toolbar";
 import { createBlinkSequence } from "./blink-sequence";
 import { ConversationPanel } from "./conversation-panel";
 import { useConversation } from "./use-conversation";
@@ -1118,6 +1119,8 @@ function RadialPad({
 
 
 export default function Home() {
+  const toolbar = useWinkToolbar();
+  const toolbarHasSelection = Boolean(toolbar.selectedLabel);
   const [screen, setScreen] = useState<Screen>("home");
   const conversationReturnRef = useRef<Screen>("home");
   const [inputMode, setInputMode] = useState<InputMode>("initial");
@@ -3354,13 +3357,20 @@ export default function Home() {
         setManualMessage(name + " 동작이 감지되었습니다.\n\n" + key + " 입력입니다.");
         return;
       }
-      if (gesture === "brows") { if (screen === "conversation") closeConversation(); else openConversation(); return; }
+      if (gesture === "left" || gesture === "right") {
+        if (dynamicInitialOverlay) dynamicInitialOverlay.onDismiss();
+        toolbar.move(gesture);
+        return;
+      }
+      if (gesture === "brows") { toolbar.clear(); if (screen === "conversation") closeConversation(); else openConversation(); return; }
       if (gesture === "double") {
+        if (toolbar.hasSelection()) { toolbar.activate(); return; }
         if (screen !== "conversation" && !quickRepliesOpen) speak(selectedSentence || (inputMode === "direct" ? currentInputText.trim() : ""));
         return;
       }
       if (gesture === "frown") {
         stopSpeech();
+        if (toolbar.hasSelection()) { toolbar.clear(); return; }
         if (screen === "conversation") { closeConversation(); return; }
         if (editingSentence !== null) { setEditingSentence(null); return; }
         if (quickRepliesOpen) { setQuickRepliesOpen(false); return; }
@@ -3456,6 +3466,7 @@ export default function Home() {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return false;
       if (target.closest("input, textarea, select, [contenteditable=true]")) return true;
+      if (event.code === "Space" && toolbar.hasSelection()) return false;
       if (!nativeControl(target)) return false;
       // Space retains native activation; Enter is handled as the frown gesture above.
       return !event.key.startsWith("Arrow") && !(event.code === "Space" && directionSequenceRef.current.length > 0);
@@ -3493,7 +3504,8 @@ export default function Home() {
 
         if (event.repeat) return;
 
-        shortBlink.flush();
+        if (toolbar.hasSelection()) { shortBlink.cancel(); toolbar.clear(); }
+        else shortBlink.flush();
         appendDirectionKey(event.key as ArrowKey);
         return;
       }
@@ -3522,7 +3534,7 @@ export default function Home() {
 
         // 방향 입력이 전혀 없는 정면 깜빡임에서만 1.5초 타이머를 시작합니다.
         // 타이머가 실제로 끝나기 전에는 휴식 모드가 절대 바뀌지 않습니다.
-        if (!direction) {
+        if (!direction && !toolbar.hasSelection()) {
           restHoldTimerRef.current = setTimeout(() => {
             restHoldTimerRef.current = null;
             restHoldTriggeredRef.current = true;
@@ -3581,6 +3593,7 @@ export default function Home() {
         blinkDirectionRef.current = null;
 
         const performBlink = () => {
+        if (toolbar.hasSelection()) { if (!isRestingRef.current) toolbar.activate(); return; }
         if (!direction) {
           clearDirectionSequence();
 
@@ -3642,6 +3655,7 @@ export default function Home() {
     };
 
     const handleBlur = () => {
+      toolbar.clear();
       if (manualGestureTimerRef.current !== null) clearTimeout(manualGestureTimerRef.current);
       if (manualLongTimerRef.current !== null) clearTimeout(manualLongTimerRef.current);
       setManualGesture(null);
@@ -3675,7 +3689,7 @@ export default function Home() {
 
   useEffect(() => {
     const longGazeEnabled =
-      !quickRepliesOpen && screen === "free-input" && inputMode === "initial";
+      !toolbarHasSelection && !quickRepliesOpen && screen === "free-input" && inputMode === "initial";
 
     if (
       !longGazeEnabled ||
@@ -3716,6 +3730,7 @@ export default function Home() {
     initialStage,
     selectedInitialGroup,
     quickRepliesOpen,
+    toolbarHasSelection,
   ]);
 
   useEffect(() => {
@@ -3724,6 +3739,8 @@ export default function Home() {
     setFourWayUtilityOpen(false);
     setFourWayPage(0);
   }, [screen, initialStage, englishInitialStage, directStage, inputMode, directionMode, quickRepliesOpen]);
+
+  useEffect(() => { toolbar.clear(); }, [screen, toolbar.clear]);
 
   const statusBox = (
     <div className={styles.status}>
@@ -4030,7 +4047,7 @@ export default function Home() {
 
         <div className={styles.conversationLayout}>
         <div className="min-w-0">
-          <div className={styles.conversationTools} data-native-controls>
+          <div ref={toolbar.ref} role="toolbar" aria-label="대화 도구" className={styles.conversationTools} data-native-controls>
             <button type="button" disabled={isResting} onClick={openConversation}>대화 기록</button>
             <button type="button" disabled={isResting} data-active={quickRepliesOpen} onClick={() => setQuickRepliesOpen(previous => !previous)}>{quickRepliesOpen ? "계속 쓰기" : "빠른 응답"}</button>
             <button type="button" disabled={isResting || !(selectedSentence || (inputMode === "direct" && currentInputText))} onClick={() => setEditingSentence(selectedSentence || currentInputText)}>문장 수정</button>
@@ -4039,6 +4056,7 @@ export default function Home() {
             {isSpeaking && <button type="button" onClick={stopSpeech}>음성 멈추기</button>}
             <button type="button" aria-pressed={showTyping} data-active={showTyping} onClick={() => setShowTyping(previous => !previous)}>작성 중 표시</button>
           </div>
+          <span className="sr-only" role="status">{toolbar.selectedLabel ? `${toolbar.selectedLabel} 지정됨. Space로 선택합니다.` : ""}</span>
           {showTyping && (currentInputText || selectedSentence) && <p className={styles.typingIndicator} role="status">말을 작성하고 있어요. 잠시 기다려 주세요.</p>}
           {speechError && <p className={styles.speechError} role="alert">{speechError}</p>}
           {editingSentence !== null && <form className={styles.sentenceEditor} data-native-controls onSubmit={event => { event.preventDefault(); if (!editingSentence.trim() || isResting) return; setSelectedSentence(editingSentence.trim()); setEditingSentence(null); }}>
@@ -4063,7 +4081,7 @@ export default function Home() {
             speakingDurationMs={speakingDurationMs}
             speechAnimationKey={speechAnimationKey}
             enableDwellSelection={
-              !quickRepliesOpen && screen === "free-input" && inputMode === "initial"
+              !toolbarHasSelection && !quickRepliesOpen && screen === "free-input" && inputMode === "initial"
             }
             dwellMs={1500}
             dynamicOverlay={dynamicInitialOverlay}

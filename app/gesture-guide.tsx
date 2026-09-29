@@ -19,8 +19,8 @@ const gestures: { gesture: Gesture; label: string; key: string; description: str
   { gesture: "blink", label: "눈 깜빡임", key: "Space", description: "방향을 고른 뒤 한 번 눌러 선택합니다.\n\n대각선은 두 방향키를 순서대로 누릅니다." },
   { gesture: "long", label: "길게 눈 감기", key: "Space 1.5초", description: "자음을 길게 선택하면 쌍자음을 입력합니다.\n\n방향 없이 길게 누르면 휴식 모드를 전환합니다." },
   { gesture: "double", label: "더블 블링크", key: "Space 두 번", description: "빠르게 두 번 눌러 작성·선택한 문장을 말합니다.\n\n두 번째 입력은 0.35초 안에 해주세요." },
-  { gesture: "left", label: "왼쪽 윙크", key: "C", description: "대화 기록을 위로 스크롤합니다." },
-  { gesture: "right", label: "오른쪽 윙크", key: "M", description: "대화 기록을 아래로 스크롤합니다." },
+  { gesture: "left", label: "왼쪽 윙크", key: "C", description: "도구 줄의 맨 왼쪽부터 오른쪽으로 지정합니다. Space 한 번으로 선택합니다.\n\n대화 기록에서는 위로 스크롤합니다." },
+  { gesture: "right", label: "오른쪽 윙크", key: "M", description: "도구 줄의 맨 오른쪽부터 왼쪽으로 지정합니다. Space 한 번으로 선택합니다.\n\n대화 기록에서는 아래로 스크롤합니다." },
   { gesture: "frown", label: "강하게 찡그림", key: "Enter", description: "음성 출력을 멈추고 현재 선택을 취소합니다.\n\n대화 기록에서는 이전 화면으로 돌아갑니다." },
   { gesture: "brows", label: "눈썹 올리기", key: "R", description: "대화 기록을 열거나 닫습니다.\n\n작성 중인 내용은 유지됩니다." },
 ];
