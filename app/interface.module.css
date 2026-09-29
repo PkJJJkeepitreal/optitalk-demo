@@ -58,7 +58,27 @@
 .centerText { margin-top: 24px; max-width: 100%; white-space: pre-line; overflow-wrap: anywhere; font-size: clamp(19px, 2.8vw, 32px); font-weight: 600; line-height: 1.7; letter-spacing: -0.7px; }
 .centerHint { margin-top: 18px; font-size: 12px; color: #617b69; }
 .workspace { max-width: 1440px; margin: 0 auto; }
-.conversationLayout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+.conversationLayout { display: block; }
+.historyEntry { width: 100%; margin-top: 16px; padding: 16px; border: 1px solid #ccdacc; border-radius: 16px; background: #fffefa; font-weight: 650; }
+.historyEntry span { margin-left: 8px; color: #64776e; }
+.historyEntry[data-active="true"] { outline: 3px solid #286d5e; }
+.historyShell { min-height: 100dvh; padding: 24px clamp(12px, 4vw, 48px); background: #edf1e8; color: #203a38; }
+.historyScreen { max-width: 960px; margin: auto; }
+.historyHeader { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 20px; }
+.historyHeader h1 { font-size: clamp(24px, 4vw, 34px); font-weight: 750; }
+.historyHeader h1 span { font-size: 16px; color: #64776e; }
+.historyNavigation { display: flex; gap: 12px; margin-bottom: 16px; }
+.historyNavigation button { flex: 1; min-height: 64px; border-radius: 16px; border: 1px solid #bdcfc0; background: #fffefa; font-size: clamp(16px, 3vw, 20px); font-weight: 650; }
+.historyNavigation button:active { background: #dbece0; }
+.historyNavigation button:disabled { opacity: .5; }
+.historyScreen .conversationBody { padding: 0; }
+.historyScreen .historyMessages { height: clamp(220px, calc(100dvh - 290px), 780px); max-height: none; margin: 12px 0; padding: 20px; border: 1px solid #d5e0d5; border-radius: 22px; background: #fffefa; scroll-behavior: auto; }
+.historyMessages .message { max-width: 85%; padding: 16px 20px; }
+.historyMessages .message[data-role="self"] { margin-left: auto; }
+.historyMessages .message p { font-size: clamp(20px, 3vw, 28px); }
+.historyMessages .messageMeta, .historyMessages .messageActions { font-size: 13px; }
+.historyOptions { padding: 12px 0; }
+.historyOptions summary { cursor: pointer; padding: 8px 0; font-size: 14px; color: #526e60; }
 .conversationPanel { min-width: 0; margin-top: 12px; border: 1px solid #d5e0d5; border-radius: 22px; background: #fffefa; overflow: hidden; }
 .conversationHeading { padding: 18px 20px; cursor: pointer; font-weight: 700; font-size: 17px; }
 .conversationHeading span { margin-left: 8px; font-size: 12px; color: #64776e; }

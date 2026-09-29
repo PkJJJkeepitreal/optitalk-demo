@@ -18,6 +18,7 @@ type Screen =
   | "home"
   | "manual"
   | "settings"
+  | "conversation"
   | "category-menu"
   | "category"
   | "free-input";
@@ -1105,6 +1106,7 @@ function RadialPad({
 
 export default function Home() {
   const [screen, setScreen] = useState<Screen>("home");
+  const conversationReturnRef = useRef<Screen>("home");
   const [inputMode, setInputMode] = useState<InputMode>("initial");
   const [committedInputSegments, setCommittedInputSegments] = useState<InputSegment[]>([]);
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
@@ -1372,6 +1374,23 @@ export default function Home() {
     setIsResting(false);
     setManualSelectedDirection(null);
     setScreen("home");
+  };
+
+  const openConversation = () => {
+    conversationReturnRef.current = screen;
+    clearDirectionSequence();
+    clearRestHoldTimer();
+    blinkStartRef.current = null;
+    blinkDirectionRef.current = null;
+    setIsBlinkPressed(false);
+    screenRef.current = "conversation";
+    setScreen("conversation");
+  };
+
+  const closeConversation = () => {
+    clearDirectionSequence();
+    screenRef.current = conversationReturnRef.current;
+    setScreen(conversationReturnRef.current);
   };
 
   const openFreeInput = () => {
@@ -1820,6 +1839,7 @@ export default function Home() {
 
   if (screen === "home") {
     radialItems = [
+      { direction: "nw", label: "대화 기록", action: openConversation },
       {
         direction: "n",
         label: "사용설명서",
@@ -3391,6 +3411,7 @@ export default function Home() {
       return !event.key.startsWith("Arrow") && !(event.code === "Space" && directionSequenceRef.current.length > 0);
     };
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (screenRef.current === "conversation") return;
       if (usesNativeKeyboard(event)) return;
       if (isRestingRef.current && event.code !== "Space") return;
       if (
@@ -3475,6 +3496,7 @@ export default function Home() {
     };
 
     const handleKeyUp = (event: KeyboardEvent) => {
+      if (screenRef.current === "conversation") return;
       if (usesNativeKeyboard(event)) return;
       if (
         event.key === "ArrowUp" ||
@@ -3713,11 +3735,15 @@ export default function Home() {
             </div>
           </section>
           <button type="button" onClick={toggleRestFromHome} className={styles.rest} data-active={isResting || (!activeDirection && isBlinkPressed)}><InterfaceIcon name="pause" />{isResting ? "휴식 마치기" : "잠시 쉬기"}</button>
-          <ConversationPanel messages={messages} onSpeak={speak} disabled={isResting} shareContext={shareContext} onShareContext={setShareContext} compact />
+          <button type="button" data-native-controls disabled={isResting} onClick={openConversation} className={styles.historyEntry} data-active={activeDirection === "nw"}>대화 기록 <span>{messages.length}</span></button>
           <footer className={styles.footer}><span>GLIM · AAC</span><span>나의 속도로, 나의 목소리로</span></footer>
         </div>
       </main>
     );
+  }
+
+  if (screen === "conversation") {
+    return <main className={styles.historyShell}><ConversationPanel messages={messages} onSpeak={speak} disabled={isResting} shareContext={shareContext} onShareContext={setShareContext} onBack={closeConversation} /></main>;
   }
 
   if (screen === "settings") {
@@ -3964,6 +3990,7 @@ export default function Home() {
         <div className={styles.conversationLayout}>
         <div className="min-w-0">
           <div className={styles.conversationTools} data-native-controls>
+            <button type="button" disabled={isResting} onClick={openConversation}>대화 기록</button>
             <button type="button" disabled={isResting} data-active={quickRepliesOpen} onClick={() => setQuickRepliesOpen(previous => !previous)}>{quickRepliesOpen ? "계속 쓰기" : "빠른 응답"}</button>
             <button type="button" disabled={isResting || !(selectedSentence || (inputMode === "direct" && currentInputText))} onClick={() => setEditingSentence(selectedSentence || currentInputText)}>문장 수정</button>
             <button type="button" className={styles.speakButton} disabled={isResting || !(selectedSentence || (inputMode === "direct" && currentInputText))} onClick={() => speak(selectedSentence || currentInputText)}>말하기</button>
@@ -4013,7 +4040,6 @@ export default function Home() {
           />
         </section>
         </div>
-        <ConversationPanel messages={messages} onSpeak={speak} disabled={isResting} shareContext={shareContext} onShareContext={setShareContext} />
         </div>
 
         <style jsx global>{`
