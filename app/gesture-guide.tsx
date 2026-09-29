@@ -22,7 +22,7 @@ const gestures: { gesture: Gesture; label: string; key: string; description: str
   { gesture: "left", label: "왼쪽 윙크", key: "C", description: "지정된 도구에서 왼쪽으로 이동합니다. 처음에는 맨 왼쪽을 지정합니다.\n\nSpace로 선택합니다. 대화 기록에서는 위로 스크롤합니다." },
   { gesture: "right", label: "오른쪽 윙크", key: "M", description: "지정된 도구에서 오른쪽으로 이동합니다. 처음에는 맨 오른쪽을 지정합니다.\n\nSpace로 선택합니다. 대화 기록에서는 아래로 스크롤합니다." },
   { gesture: "frown", label: "강하게 찡그림", key: "Enter", description: "음성 출력을 멈추고 현재 선택을 취소합니다.\n\n대화 기록에서는 이전 화면으로 돌아갑니다." },
-  { gesture: "brows", label: "눈썹 올리기", key: "R", description: "대화 기록을 열거나 닫습니다.\n\n작성 중인 내용은 유지됩니다." },
+  { gesture: "brows", label: "눈썹 올리기", key: "R", description: "4방향 모드에서 글자·문장과 기능 레이어를 전환합니다.\n\n작성 중인 내용은 유지됩니다." },
 ];
 
 export function GestureGuide({ activeGesture }: { activeGesture: Gesture | null }) {

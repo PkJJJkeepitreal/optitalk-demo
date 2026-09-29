@@ -3340,8 +3340,6 @@ export default function Home() {
   const isRestingRef = useRef(isResting);
   const screenRef = useRef(screen);
   const inputModeRef = useRef(inputMode);
-  const directionModeRef = useRef(directionMode);
-  const fourWayHasUtilitiesRef = useRef(fourWayHasUtilities);
   const dynamicOverlayOpenRef = useRef(Boolean(dynamicInitialOverlay));
 
   useEffect(() => {
@@ -3350,8 +3348,6 @@ export default function Home() {
     isRestingRef.current = isResting;
     screenRef.current = screen;
     inputModeRef.current = inputMode;
-    directionModeRef.current = directionMode;
-    fourWayHasUtilitiesRef.current = fourWayHasUtilities;
     dynamicOverlayOpenRef.current = Boolean(dynamicInitialOverlay);
   });
 
@@ -3370,7 +3366,15 @@ export default function Home() {
         toolbar.move(gesture);
         return;
       }
-      if (gesture === "brows") { toolbar.clear(); if (screen === "conversation") closeConversation(); else openConversation(); return; }
+      if (gesture === "brows") {
+        toolbar.clear();
+        if (dynamicInitialOverlay) dynamicInitialOverlay.onDismiss();
+        if (fourWayEnabled && fourWayHasUtilities) {
+          setFourWayUtilityOpen((previous) => !previous);
+          setFourWayPage(0);
+        }
+        return;
+      }
       if (gesture === "double") {
         if (toolbar.hasSelection()) { toolbar.activate(); return; }
         if (screen !== "conversation" && !quickRepliesOpen) speak(selectedSentence || (inputMode === "direct" ? currentInputText.trim() : ""));
@@ -3612,17 +3616,6 @@ export default function Home() {
           if (dynamicOverlayOpenRef.current) {
             setSelectedInitialGroup(null);
             setInitialStage("groups");
-            return;
-          }
-
-          if (
-            directionModeRef.current === "4" &&
-            screenRef.current !== "home" &&
-            screenRef.current !== "settings" &&
-            fourWayHasUtilitiesRef.current
-          ) {
-            setFourWayUtilityOpen((previous) => !previous);
-            setFourWayPage(0);
             return;
           }
 
@@ -4082,7 +4075,7 @@ export default function Home() {
                 ? "기능"
                 : "나의 문장"
             }
-            centerHelper={!quickRepliesOpen && fourWayEnabled && fourWayHasUtilities ? (fourWayUtilityOpen ? "기능 선택" : "글자 · 문장 선택") : undefined}
+            centerHelper={!quickRepliesOpen && fourWayEnabled && fourWayHasUtilities ? (fourWayUtilityOpen ? "눈썹 올리기: 글자 · 문장으로" : "눈썹 올리기: 기능으로") : undefined}
             isSpeaking={isSpeaking}
             speakingDurationMs={speakingDurationMs}
             speechAnimationKey={speechAnimationKey}
