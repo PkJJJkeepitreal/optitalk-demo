@@ -32,9 +32,10 @@ export function ConversationPanel({ messages, onSpeak, disabled, shareContext, o
       if (!disabled && (eye === "left" || eye === "right")) scrollLog(eye);
     };
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
       if (event.key === "Escape") { event.preventDefault(); if (!event.repeat) onBack(); return; }
       if (disabled || event.target instanceof HTMLElement && event.target.closest("input, textarea, select, [contenteditable=true]")) return;
-      const eye = event.key === "ArrowLeft" || event.key === "ArrowUp" ? "left" : event.key === "ArrowRight" || event.key === "ArrowDown" ? "right" : null;
+      const eye = event.code === "KeyC" || event.key === "ArrowLeft" || event.key === "ArrowUp" ? "left" : event.code === "KeyM" || event.key === "ArrowRight" || event.key === "ArrowDown" ? "right" : null;
       if (!eye) return;
       event.preventDefault();
       if (!event.repeat) scrollLog(eye);

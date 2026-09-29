@@ -9,6 +9,8 @@ import {
   type ReactNode,
 } from "react";
 import styles from "./interface.module.css";
+import { GestureGuide } from "./gesture-guide";
+import { createBlinkSequence } from "./blink-sequence";
 import { ConversationPanel } from "./conversation-panel";
 import { useConversation } from "./use-conversation";
 import { useSpeech } from "./use-speech";
@@ -882,24 +884,6 @@ function RadialPad({
     );
   };
 
-  const overlayAnchorClass: Record<Direction, string> = {
-    nw: "left-[20%] top-[18%]",
-    n: "left-1/2 top-[18%]",
-    ne: "left-[80%] top-[18%]",
-    w: "left-[18%] top-1/2",
-    e: "left-[82%] top-1/2",
-    sw: "left-[20%] top-[82%]",
-    s: "left-1/2 top-[82%]",
-    se: "left-[80%] top-[82%]",
-  };
-
-  const overlayOptionPosition: Record<DynamicOverlayDirection, string> = {
-    n: "left-1/2 top-0 -translate-x-1/2",
-    e: "right-0 top-1/2 -translate-y-1/2",
-    s: "bottom-0 left-1/2 -translate-x-1/2",
-    w: "left-0 top-1/2 -translate-y-1/2",
-  };
-
   const renderDynamicOverlay = () => {
     if (!dynamicOverlay) return null;
 
@@ -914,13 +898,14 @@ function RadialPad({
 
         <div
           className={
-            `pointer-events-none absolute z-50 h-[11.5rem] w-[11.5rem] -translate-x-1/2 -translate-y-1/2 sm:h-[13rem] sm:w-[13rem] ${overlayAnchorClass[dynamicOverlay.anchorDirection]}`
+            styles.initialWheel
           }
         >
+          <svg width="0" height="0" aria-hidden="true"><defs><clipPath id="initial-sector" clipPathUnits="objectBoundingBox"><path d="M .22 .13 A .465 .465 0 0 1 .78 .13 Q .80 .15 .78 .18 L .64 .35 Q .62 .37 .60 .36 A .18 .18 0 0 0 .40 .36 Q .38 .37 .36 .35 L .22 .18 Q .20 .15 .22 .13 Z" /></clipPath></defs></svg>
           <button
             type="button"
             onClick={dynamicOverlay.onDismiss}
-            className="pointer-events-auto absolute left-1/2 top-1/2 z-10 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 touch-manipulation items-center justify-center rounded-full border-2 border-teal-500 bg-slate-900 text-xs font-bold text-white shadow-xl sm:h-16 sm:w-16"
+            className={styles.initialWheelCenter}
           >
             {dynamicOverlay.title}
           </button>
@@ -975,30 +960,23 @@ function RadialPad({
                   clearOverlayHoverDwell();
                 }}
                 onContextMenu={(event) => event.preventDefault()}
-                className={
-                  `pointer-events-auto absolute ${overlayOptionPosition[option.direction]} flex h-16 w-16 touch-manipulation select-none flex-col items-center justify-center overflow-hidden rounded-full border-2 text-center shadow-xl transition sm:h-[4.5rem] sm:w-[4.5rem] ` +
-                  (isActive
-                    ? "scale-110 border-teal-700 bg-teal-600 text-white"
-                    : "border-teal-300 bg-white text-slate-950")
-                }
+                className={styles.initialSector}
+                data-direction={option.direction}
+                data-active={isActive}
               >
-                <span className="text-xl font-black sm:text-2xl">{option.label}</span>
+                <span className={styles.initialSectorContent}><span className={styles.initialSectorLabel}>{option.label}</span>
                 {option.helper && (
                   <span
                     className={
-                      "mt-0.5 max-w-[90%] truncate text-[8px] " +
+                      "mt-0.5 max-w-[90%] truncate text-sm " +
                       (isActive ? "text-teal-100" : "text-slate-400")
                     }
                   >
                     {option.helper}
                   </span>
                 )}
-                {(isHover || showKeyboardDwell) &&
-                  renderDwellProgress(
-                    isHover
-                      ? overlayDwellKey
-                      : overlayDwellKey + 20000 + option.direction.charCodeAt(0)
-                  )}
+                {(isHover || showKeyboardDwell) && <span key={overlayDwellKey} className={styles.initialProgress} style={{ animation: `glimDwellProgress ${dwellMs}ms linear forwards` }} />}
+                </span>
               </button>
             );
           })}
@@ -1166,7 +1144,8 @@ export default function Home() {
   const [showTyping, setShowTyping] = useState(false);
   const [quickRepliesOpen, setQuickRepliesOpen] = useState(false);
   const [editingSentence, setEditingSentence] = useState<string | null>(null);
-  const convergeSpeakRef = useRef<(text: string) => void>(() => undefined);
+  const gestureActionRef = useRef<(gesture: "double" | "frown" | "brows" | "left" | "right") => void>(() => undefined);
+  const shortBlinkRef = useRef<ReturnType<typeof createBlinkSequence> | null>(null);
 
   const activeDirection = useMemo(
     () => getDirectionFromKeys(heldArrowKeys),
@@ -1333,7 +1312,7 @@ export default function Home() {
   };
 
   // Every explicit utterance follows one path; speaking never destroys the draft.
-  convergeSpeakRef.current = speak;
+
 
   const resetAllInput = () => {
     setQuickRepliesOpen(false);
@@ -1929,7 +1908,6 @@ export default function Home() {
     radialItems = CATEGORIES.map((category, index) => ({
       direction: SIX_DIRECTION_ORDER[index],
       label: category.icon + " " + category.title,
-      helper: category.subtitle,
       action: () => {
         setActiveCategory(category);
         setSelectedSentence("");
@@ -3310,8 +3288,6 @@ export default function Home() {
   const directionModeRef = useRef(directionMode);
   const fourWayHasUtilitiesRef = useRef(fourWayHasUtilities);
   const dynamicOverlayOpenRef = useRef(Boolean(dynamicInitialOverlay));
-  const selectedSentenceRef = useRef(selectedSentence);
-  const directOutputRef = useRef(currentInputText);
 
   useEffect(() => {
     radialItemsRef.current = interactionItems;
@@ -3322,8 +3298,32 @@ export default function Home() {
     directionModeRef.current = directionMode;
     fourWayHasUtilitiesRef.current = fourWayHasUtilities;
     dynamicOverlayOpenRef.current = Boolean(dynamicInitialOverlay);
-    selectedSentenceRef.current = quickRepliesOpen ? "" : selectedSentence;
-    directOutputRef.current = quickRepliesOpen ? "" : currentInputText;
+  });
+
+  useEffect(() => {
+    gestureActionRef.current = (gesture) => {
+      clearDirectionSequence();
+      if (screen === "manual") {
+        const descriptions = { double: ["더블 블링크", "Space 두 번"], frown: ["강하게 찡그림", "F"], brows: ["눈썹 올리기", "R"], left: ["왼쪽 윙크", "C"], right: ["오른쪽 윙크", "M"] };
+        const [name, key] = descriptions[gesture];
+        setManualMessage(name + " 동작이 감지되었습니다.\n\n" + key + " 입력입니다.");
+        return;
+      }
+      if (gesture === "brows") { if (screen === "conversation") closeConversation(); else openConversation(); return; }
+      if (gesture === "double") {
+        if (screen !== "conversation" && !quickRepliesOpen) speak(selectedSentence || (inputMode === "direct" ? currentInputText.trim() : ""));
+        return;
+      }
+      if (gesture === "frown") {
+        stopSpeech();
+        if (screen === "conversation") { closeConversation(); return; }
+        if (editingSentence !== null) { setEditingSentence(null); return; }
+        if (quickRepliesOpen) { setQuickRepliesOpen(false); return; }
+        if (dynamicInitialOverlay) { dynamicInitialOverlay.onDismiss(); return; }
+        setFourWayUtilityOpen(false);
+        setSelectedSentence("");
+      }
+    };
   });
 
   const blinkStartRef = useRef<number | null>(null);
@@ -3400,6 +3400,11 @@ export default function Home() {
   };
 
   useEffect(() => {
+    const shortBlink = createBlinkSequence(() => {
+      clearDirectionSequence();
+      if (!isRestingRef.current) gestureActionRef.current("double");
+    });
+    shortBlinkRef.current = shortBlink;
     const nativeControl = (target: EventTarget | null) =>
       target instanceof HTMLElement && Boolean(target.closest("[data-native-controls], input, textarea, select, [contenteditable=true]"));
     const usesNativeKeyboard = (event: KeyboardEvent) => {
@@ -3411,6 +3416,24 @@ export default function Home() {
       return !event.key.startsWith("Arrow") && !(event.code === "Space" && directionSequenceRef.current.length > 0);
     };
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+      const editing = event.target instanceof HTMLElement && event.target.closest("input, textarea, select, [contenteditable=true]");
+      if (!editing && !event.repeat && !isRestingRef.current) {
+        const gesture = event.code === "KeyC" ? "left" : event.code === "KeyM" ? "right" : event.code === "KeyF" ? "frown" : event.code === "KeyR" ? "brows" : null;
+        if (gesture) {
+          // The history screen owns wink scrolling; avoid a parent rerender
+          // replacing its event listener in the middle of this key event.
+          if (screenRef.current === "conversation" && (gesture === "left" || gesture === "right")) return;
+          event.preventDefault();
+          shortBlink.cancel();
+          clearRestHoldTimer();
+          blinkStartRef.current = null;
+          blinkDirectionRef.current = null;
+          setIsBlinkPressed(false);
+          gestureActionRef.current(gesture);
+          return;
+        }
+      }
       if (screenRef.current === "conversation") return;
       if (usesNativeKeyboard(event)) return;
       if (isRestingRef.current && event.code !== "Space") return;
@@ -3424,6 +3447,7 @@ export default function Home() {
 
         if (event.repeat) return;
 
+        shortBlink.flush();
         appendDirectionKey(event.key as ArrowKey);
         return;
       }
@@ -3468,31 +3492,7 @@ export default function Home() {
         return;
       }
 
-      if (event.key === "Enter" && !event.repeat) {
-        event.preventDefault();
 
-        if (screenRef.current === "manual") {
-          setManualMessage("Converge 동작이 감지되었습니다. Enter 입력입니다.");
-          clearDirectionSequence();
-          return;
-        }
-
-        const sentence = selectedSentenceRef.current;
-
-        if (sentence) {
-          convergeSpeakRef.current(sentence);
-          clearDirectionSequence();
-          return;
-        }
-
-        if (
-          screenRef.current === "free-input" &&
-          inputModeRef.current === "direct"
-        ) {
-          convergeSpeakRef.current(directOutputRef.current.trim());
-          clearDirectionSequence();
-        }
-      }
     };
 
     const handleKeyUp = (event: KeyboardEvent) => {
@@ -3515,7 +3515,8 @@ export default function Home() {
         event.preventDefault();
 
         const startedAt = blinkStartRef.current;
-        const duration = startedAt === null ? 0 : Date.now() - startedAt;
+        if (startedAt === null) return;
+        const duration = Date.now() - startedAt;
         const longBlink = duration >= 1500;
 
         blinkStartRef.current = null;
@@ -3525,6 +3526,7 @@ export default function Home() {
         const direction = blinkDirectionRef.current;
         blinkDirectionRef.current = null;
 
+        const performBlink = () => {
         if (!direction) {
           clearDirectionSequence();
 
@@ -3579,10 +3581,14 @@ export default function Home() {
         } else {
           item.action();
         }
+        };
+        if (longBlink) { shortBlink.cancel(); performBlink(); }
+        else shortBlink.tap(performBlink);
       }
     };
 
     const handleBlur = () => {
+      shortBlink.cancel();
       clearDirectionSequence();
       clearRestHoldTimer();
       restHoldTriggeredRef.current = false;
@@ -3598,6 +3604,7 @@ export default function Home() {
     window.addEventListener("blur", handleBlur);
 
     return () => {
+      shortBlink.cancel();
       window.removeEventListener("focusin", handleFocus);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
@@ -3632,7 +3639,7 @@ export default function Home() {
         (candidate) => candidate.direction === targetDirection
       );
 
-      if (!latestTarget || isRestingRef.current) return;
+      if (!latestTarget || isRestingRef.current || blinkStartRef.current !== null) return;
 
       latestTarget.action();
       clearDirectionSequence();
@@ -3654,6 +3661,7 @@ export default function Home() {
 
   useEffect(() => {
     clearDirectionSequence();
+    shortBlinkRef.current?.cancel();
     setFourWayUtilityOpen(false);
     setFourWayPage(0);
   }, [screen, initialStage, englishInitialStage, directStage, inputMode, directionMode, quickRepliesOpen]);
@@ -3662,6 +3670,7 @@ export default function Home() {
     <div className={styles.status}>
       <span className={styles.statusReady}><span className={styles.statusDot} />{isResting ? "쉬어가는 중" : isSpeaking ? "말하는 중" : "대화 준비 완료"}</span>
       <span className={styles.statusPill}>{directionMode}방향</span>
+      <span className={styles.statusPill}>ver.3-1</span>
       {screen === "manual" && <span className={styles.statusPill}>{activeDirection ? DIRECTION_KEY_LABEL[activeDirection] : "정면"} · {isBlinkPressed ? "Blink 감지" : "대기"}</span>}
       {screen === "free-input" && inputMode === "direct" && <span className={styles.statusPill}>{koreanDirectLayout === "cheonjiin" ? "천지인" : "그룹 입력"}</span>}
     </div>
@@ -3705,22 +3714,22 @@ export default function Home() {
             </nav>
           </header>
           <div className={styles.intro}>
-            <p className={styles.eyebrow}>A LITTLE GLIM, A BIG CONVERSATION</p>
+
             <h1>지금, 어떤 이야기를 나눌까요?</h1>
-            <p>당신의 생각이, 당신의 말로.</p>
+
           </div>
           {statusBox}
           <section className={styles.homeCards} aria-label="대화 시작">
             <button type="button" disabled={isResting} onClick={openCategoryMenu} className={styles.homeCard} data-active={categoryActive}>
               <span className={styles.cardIcon}><InterfaceIcon name="grid" /></span>
               <h2>카테고리 선택</h2>
-              <p>일상에 필요한 표현들</p>
+
               <InterfaceIcon name="arrow" className={styles.cardArrow} />
             </button>
             <button type="button" disabled={isResting} onClick={openFreeInput} className={styles.homeCard + " " + styles.inputCard} data-active={inputActive}>
               <span className={styles.cardIcon}><InterfaceIcon name="write" /></span>
               <h2>자유 입력</h2>
-              <p>내가 하고 싶은 이야기</p>
+
               <InterfaceIcon name="arrow" className={styles.cardArrow} />
             </button>
           </section>
@@ -3867,7 +3876,7 @@ export default function Home() {
               activeDirection={activeDirection}
               isResting={isResting}
               isBlinkPressed={isBlinkPressed}
-              centerText={manualMessage}
+              centerText={manualMessage.replace(/\.\s+(?=\S)/g, ".\n\n")}
               centerTitle="PRACTICE / REST ZONE"
               centerHelper="정면에서 Space를 1.5초 이상 길게 눌러 휴식 전환"
               onCenter={() => {
@@ -3892,34 +3901,7 @@ export default function Home() {
             />
           </section>
 
-          <section className="mt-5 grid gap-3 sm:grid-cols-3 sm:gap-4">
-            <div className="rounded-3xl bg-white p-5 shadow-sm">
-              <p className="text-sm font-semibold text-teal-600">눈 깜빡임</p>
-              <p className="mt-2 text-2xl font-bold">Space</p>
-              <p className="mt-3 text-sm text-slate-500">
-                {directionMode === "4"
-                  ? "상·하·좌·우 방향키 1개를 누른 뒤 Space로 선택합니다."
-                  : "한 방향은 방향키 1개를 누른 뒤 Space로 선택합니다. 대각선은 두 방향키를 순서대로 누른 뒤 Space로 선택합니다."}
-              </p>
-            </div>
-
-            <div className="rounded-3xl bg-white p-5 shadow-sm">
-              <p className="text-sm font-semibold text-teal-600">Long blink</p>
-              <p className="mt-2 text-2xl font-bold">Space 1.5초 이상</p>
-              <p className="mt-3 text-sm text-slate-500">
-                초성 입력에서 ㄱ·ㄷ·ㅂ·ㅅ·ㅈ을 각각 ㄲ·ㄸ·ㅃ·ㅆ·ㅉ으로
-                입력합니다. 가운데 Work/Rest Zone에서는 방향 없이 1.5초 이상 길게 누르면 휴식 모드가 켜지거나 꺼집니다.
-              </p>
-            </div>
-
-            <div className="rounded-3xl bg-white p-5 shadow-sm">
-              <p className="text-sm font-semibold text-teal-600">Converge</p>
-              <p className="mt-2 text-2xl font-bold">Enter</p>
-              <p className="mt-3 text-sm text-slate-500">
-                선택한 문장 또는 입력 중인 문장을 음성으로 출력합니다.
-              </p>
-            </div>
-          </section>
+          <GestureGuide />
         </div>
       </main>
     );

@@ -58,6 +58,22 @@
 .centerText { margin-top: 24px; max-width: 100%; white-space: pre-line; overflow-wrap: anywhere; font-size: clamp(19px, 2.8vw, 32px); font-weight: 600; line-height: 1.7; letter-spacing: -0.7px; }
 .centerHint { margin-top: 18px; font-size: 12px; color: #617b69; }
 .workspace { max-width: 1440px; margin: 0 auto; }
+.initialWheel { pointer-events: none; position: absolute; z-index: 50; width: min(360px, calc(100% - 20px)); aspect-ratio: 1; left: 50%; top: 50%; transform: translate(-50%, -50%); filter: drop-shadow(0 12px 20px #203a3830); }
+.initialWheelCenter { pointer-events: auto; position: absolute; z-index: 2; width: 30%; height: 30%; left: 35%; top: 35%; border-radius: 50%; background: #286d5e; color: white; border: 3px solid #f4faf5; font-size: clamp(22px, 4vw, 32px); font-weight: 750; }
+.initialSector { pointer-events: auto; position: absolute; inset: 0; width: 100%; height: 100%; background: #f9fdf8; color: #203a38; clip-path: url(#initial-sector); transform: rotate(var(--turn, 0deg)); touch-action: manipulation; user-select: none; }
+.initialSector[data-direction="e"] { --turn: 90deg; }
+.initialSector[data-direction="s"] { --turn: 180deg; }
+.initialSector[data-direction="w"] { --turn: -90deg; }
+.initialSector[data-active="true"], .initialSector:focus-visible { background: #286d5e; color: white; }
+.initialSectorContent { position: absolute; top: 12%; left: 38%; width: 24%; height: 22%; display: flex; flex-direction: column; align-items: center; justify-content: center; transform: rotate(calc(-1 * var(--turn, 0deg))); }
+.initialSectorLabel { font-size: clamp(28px, 5vw, 42px); font-weight: 800; line-height: 1.1; }
+.initialProgress { display: block; width: 65%; height: 3px; margin-top: 5px; background: currentColor; transform-origin: left; }
+.gestureGuide { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 16px; margin-top: 24px; }
+.gestureCard { border: 1px solid #d5e0d5; border-radius: 22px; padding: 24px; background: #fffefa; }
+.gestureIcon { width: 58px; color: #286d5e; margin-bottom: 16px; }
+.gestureCard h2 { font-size: 18px; font-weight: 750; }
+.gestureCard kbd { display: inline-block; font-family: inherit; font-size: 20px; font-weight: 700; padding: 6px 12px; margin-top: 12px; background: #e6f1e9; border-radius: 10px; }
+.gestureCard p { margin-top: 16px; white-space: pre-line; line-height: 1.7; font-size: 14px; color: #617267; }
 .conversationLayout { display: block; }
 .historyEntry { width: 100%; margin-top: 16px; padding: 16px; border: 1px solid #ccdacc; border-radius: 16px; background: #fffefa; font-weight: 650; }
 .historyEntry span { margin-left: 8px; color: #64776e; }
