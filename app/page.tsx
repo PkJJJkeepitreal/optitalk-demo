@@ -3304,7 +3304,7 @@ export default function Home() {
     gestureActionRef.current = (gesture) => {
       clearDirectionSequence();
       if (screen === "manual") {
-        const descriptions = { double: ["더블 블링크", "Space 두 번"], frown: ["강하게 찡그림", "F"], brows: ["눈썹 올리기", "R"], left: ["왼쪽 윙크", "C"], right: ["오른쪽 윙크", "M"] };
+        const descriptions = { double: ["더블 블링크", "Space 두 번"], frown: ["강하게 찡그림", "Enter"], brows: ["눈썹 올리기", "R"], left: ["왼쪽 윙크", "C"], right: ["오른쪽 윙크", "M"] };
         const [name, key] = descriptions[gesture];
         setManualMessage(name + " 동작이 감지되었습니다.\n\n" + key + " 입력입니다.");
         return;
@@ -3412,14 +3412,15 @@ export default function Home() {
       if (!(target instanceof HTMLElement)) return false;
       if (target.closest("input, textarea, select, [contenteditable=true]")) return true;
       if (!nativeControl(target)) return false;
-      // Native buttons retain Enter/Space activation, while arrows can start AAC selection.
+      // Space retains native activation; Enter is handled as the frown gesture above.
       return !event.key.startsWith("Arrow") && !(event.code === "Space" && directionSequenceRef.current.length > 0);
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
       const editing = event.target instanceof HTMLElement && event.target.closest("input, textarea, select, [contenteditable=true]");
+      if (!editing && event.key === "Enter" && event.repeat) { event.preventDefault(); return; }
       if (!editing && !event.repeat && !isRestingRef.current) {
-        const gesture = event.code === "KeyC" ? "left" : event.code === "KeyM" ? "right" : event.code === "KeyF" ? "frown" : event.code === "KeyR" ? "brows" : null;
+        const gesture = event.code === "KeyC" ? "left" : event.code === "KeyM" ? "right" : event.key === "Enter" ? "frown" : event.code === "KeyR" ? "brows" : null;
         if (gesture) {
           // The history screen owns wink scrolling; avoid a parent rerender
           // replacing its event listener in the middle of this key event.

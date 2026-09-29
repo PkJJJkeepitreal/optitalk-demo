@@ -46,10 +46,10 @@ window.dispatchEvent(new CustomEvent("glim:wink", { detail: { eye: "left" } }));
 | 길게 눈 감기 | Space 1.5초 | 쌍자음 / 방향이 없으면 휴식 전환 |
 | 더블 블링크 | Space 두 번 (350ms 이내) | 작성·선택한 문장 말하기 |
 | 왼쪽 / 오른쪽 윙크 | C / M | 기록 위 / 아래 스크롤 |
-| 강하게 찡그림 | F | 음성 중단·현재 선택 취소 / 기록에서 돌아가기 |
+| 강하게 찡그림 | Enter | 음성 중단·현재 선택 취소 / 기록에서 돌아가기 |
 | 눈썹 올리기 | R | 대화 기록 열기·닫기 |
 
-사용설명서에서는 새 동작을 입력하면 감지 결과를 보여줍니다. 텍스트 입력칸과 Ctrl/Alt/Command 조합은 단축키에서 제외합니다. Converge 동작은 제거했으며 Enter는 일반 버튼·폼 조작에만 사용합니다.
+사용설명서에서는 새 동작을 입력하면 감지 결과를 보여줍니다. 텍스트 입력칸과 Ctrl/Alt/Command 조합은 단축키에서 제외합니다. Converge 동작은 제거했으며 Enter는 강하게 찡그림 동작입니다. F는 더 이상 동작 키로 사용하지 않습니다.
 
 To learn more about Next.js, take a look at the following resources:
 

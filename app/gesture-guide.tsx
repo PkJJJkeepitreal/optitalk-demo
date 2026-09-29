@@ -21,7 +21,7 @@ const gestures: { gesture: Gesture; label: string; key: string; description: str
   { gesture: "double", label: "더블 블링크", key: "Space 두 번", description: "빠르게 두 번 눌러 작성·선택한 문장을 말합니다.\n\n두 번째 입력은 0.35초 안에 해주세요." },
   { gesture: "left", label: "왼쪽 윙크", key: "C", description: "대화 기록을 위로 스크롤합니다." },
   { gesture: "right", label: "오른쪽 윙크", key: "M", description: "대화 기록을 아래로 스크롤합니다." },
-  { gesture: "frown", label: "강하게 찡그림", key: "F", description: "음성 출력을 멈추고 현재 선택을 취소합니다.\n\n대화 기록에서는 이전 화면으로 돌아갑니다." },
+  { gesture: "frown", label: "강하게 찡그림", key: "Enter", description: "음성 출력을 멈추고 현재 선택을 취소합니다.\n\n대화 기록에서는 이전 화면으로 돌아갑니다." },
   { gesture: "brows", label: "눈썹 올리기", key: "R", description: "대화 기록을 열거나 닫습니다.\n\n작성 중인 내용은 유지됩니다." },
 ];
 
