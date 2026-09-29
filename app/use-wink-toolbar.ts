@@ -16,7 +16,7 @@ export function useWinkToolbar() {
     const buttons = Array.from(ref.current?.querySelectorAll<HTMLButtonElement>(":scope > button:not(:disabled)") ?? []);
     if (!buttons.length) { clear(); return; }
     const current = selected.current ? buttons.indexOf(selected.current) : -1;
-    const next = current < 0 ? (eye === "left" ? 0 : buttons.length - 1) : Math.max(0, Math.min(buttons.length - 1, current + (eye === "left" ? 1 : -1)));
+    const next = current < 0 ? (eye === "left" ? 0 : buttons.length - 1) : Math.max(0, Math.min(buttons.length - 1, current + (eye === "left" ? -1 : 1)));
     selected.current?.removeAttribute("data-wink-selected");
     selected.current = buttons[next];
     selected.current.setAttribute("data-wink-selected", "true");
