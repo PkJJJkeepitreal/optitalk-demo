@@ -3273,17 +3273,7 @@ export default function Home() {
     ];
   }
 
-  if (screen === "settings") {
-    radialItems = [
-      { direction: "n", label: "8방향", action: () => setDirectionMode("8") },
-      { direction: "e", label: "4방향", action: () => setDirectionMode("4") },
-      { direction: "w", label: "기존 그룹 입력", action: () => setKoreanDirectLayout("group") },
-      { direction: "s", label: "천지인 입력", action: () => setKoreanDirectLayout("cheonjiin") },
-      { direction: "sw", label: "홈", action: goHome },
-    ];
-  }
-
-  const fourWayEnabled = directionMode === "4";
+  const fourWayEnabled = directionMode === "4" && screen !== "home" && screen !== "settings";
   const dwellSelectionEnabled = !toolbarHasSelection && (
     quickRepliesOpen || screen === "category-menu" || screen === "category" ||
     (screen === "free-input" && inputMode === "initial")
@@ -3394,7 +3384,6 @@ export default function Home() {
         if (quickRepliesOpen) { setQuickRepliesOpen(false); return; }
         if (dynamicInitialOverlay) { dynamicInitialOverlay.onDismiss(); return; }
         setFourWayUtilityOpen(false);
-        setFourWayPage(0);
         setSelectedSentence("");
       }
     };
@@ -3446,7 +3435,7 @@ export default function Home() {
     const previous = directionSequenceRef.current;
     let next: ArrowKey[];
 
-    if (directionModeRef.current === "4" || previous.length === 0) {
+    if (previous.length === 0) {
       next = [key];
     } else if (previous.length === 1) {
       const first = previous[0];
@@ -3628,6 +3617,8 @@ export default function Home() {
 
           if (
             directionModeRef.current === "4" &&
+            screenRef.current !== "home" &&
+            screenRef.current !== "settings" &&
             fourWayHasUtilitiesRef.current
           ) {
             setFourWayUtilityOpen((previous) => !previous);
@@ -3770,8 +3761,8 @@ export default function Home() {
   if (screen === "home") {
     const categoryActive = activeDirection === "w";
     const inputActive = activeDirection === "e";
-    const manualActive = activeDirection === displayRadialItems.find(item => item.label === "사용설명서")?.direction;
-    const settingsActive = activeDirection === displayRadialItems.find(item => item.label === "설정")?.direction;
+    const manualActive = activeDirection === "n";
+    const settingsActive = activeDirection === "ne";
     const emergencyDirections: Direction[] = ["sw", "s", "se"];
 
     const openManual = () => {
@@ -3810,12 +3801,6 @@ export default function Home() {
 
           </div>
           {statusBox}
-          {fourWayEnabled ? <RadialPad
-            items={displayRadialItems} activeDirection={activeDirection}
-            isResting={isResting} isBlinkPressed={isBlinkPressed} layoutMode="4"
-            centerTitle="홈" centerText="원하는 기능을 선택하세요."
-            onCenter={toggleRestFromHome} onCenterLong={toggleRestFromHome}
-          /> : <>
           <section className={styles.homeCards} aria-label="대화 시작">
             <button type="button" disabled={isResting} onClick={openCategoryMenu} className={styles.homeCard} data-active={categoryActive}>
               <span className={styles.cardIcon}><InterfaceIcon name="grid" /></span>
@@ -3840,7 +3825,6 @@ export default function Home() {
               ))}
             </div>
           </section>
-          </>}
           <button type="button" onClick={toggleRestFromHome} className={styles.rest} data-active={isResting || (!activeDirection && isBlinkPressed)}><InterfaceIcon name="pause" />{isResting ? "휴식 마치기" : "잠시 쉬기"}</button>
           <button type="button" data-native-controls disabled={isResting} onClick={openConversation} className={styles.historyEntry} data-active={activeDirection === "nw"}>대화 기록 <span>{messages.length}</span></button>
           <footer className={styles.footer}><span>GLIM · AAC</span><span>나의 속도로, 나의 목소리로</span></footer>
@@ -3855,7 +3839,7 @@ export default function Home() {
 
   if (screen === "settings") {
     return (
-      <main className={styles.shell}>
+      <main className={styles.shell} data-native-controls>
         <div className="mx-auto max-w-5xl">
           <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -3868,15 +3852,7 @@ export default function Home() {
             <HomeButton onClick={goHome} />
           </header>
 
-          {fourWayEnabled ? <RadialPad
-            items={displayRadialItems} activeDirection={activeDirection}
-            isResting={isResting} isBlinkPressed={isBlinkPressed} layoutMode="4"
-            centerTitle="설정"
-            centerText={"4방향 · " + (koreanDirectLayout === "group" ? "기존 그룹 입력" : "천지인 입력")}
-            centerHelper={fourWayUtilityOpen ? "설정으로 돌아가기" : "홈 메뉴 열기"}
-            onCenter={() => { setFourWayUtilityOpen(previous => !previous); setFourWayPage(0); }}
-            onCenterLong={() => setIsResting(previous => !previous)}
-          /> : <section className="grid gap-4 md:grid-cols-2" data-native-controls>
+          <section className="grid gap-4 md:grid-cols-2">
             <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="text-sm font-semibold text-teal-600">DIRECTION LAYOUT</p>
               <h2 className="mt-1 text-xl font-bold">입력 방향</h2>
@@ -3953,7 +3929,7 @@ export default function Home() {
                 </button>
               </div>
             </div>
-          </section>}
+          </section>
         </div>
       </main>
     );
@@ -4106,7 +4082,7 @@ export default function Home() {
                 ? "기능"
                 : "나의 문장"
             }
-            centerHelper={!quickRepliesOpen && fourWayEnabled && fourWayHasUtilities ? (fourWayUtilityOpen ? "글자 · 문장으로 돌아가기" : "기능 메뉴 열기") : undefined}
+            centerHelper={!quickRepliesOpen && fourWayEnabled && fourWayHasUtilities ? (fourWayUtilityOpen ? "기능 선택" : "글자 · 문장 선택") : undefined}
             isSpeaking={isSpeaking}
             speakingDurationMs={speakingDurationMs}
             speechAnimationKey={speechAnimationKey}
