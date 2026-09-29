@@ -531,8 +531,9 @@ function getDirectionFromKeys(keys: string[]): Direction | null {
   return null;
 }
 
-function InterfaceIcon({ name, className }: { name: "spark" | "grid" | "write" | "arrow" | "settings" | "guide" | "pause" | "sound"; className?: string }) {
+function InterfaceIcon({ name, className }: { name: "spark" | "grid" | "write" | "arrow" | "settings" | "guide" | "pause" | "sound" | "home"; className?: string }) {
   const paths = {
+    home: <path d="m3 11 9-8 9 8M5 10v11h14V10M9 21v-8h6v8" />,
     spark: <><path d="M12 3v4m0 10v4M3 12h4m10 0h4M5.6 5.6l2.8 2.8m7.2 7.2 2.8 2.8M5.6 18.4l2.8-2.8m7.2-7.2 2.8-2.8" /><circle cx="12" cy="12" r="3" /></>,
     grid: <><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="7" rx="2" /><rect x="3" y="14" width="7" height="7" rx="2" /><path d="M14 17.5h7m-3.5-3.5v7" /></>,
     write: <><path d="M13.5 5.5 18.5 10.5M4 20l5-1 11-11a3.5 3.5 0 0 0-5-5L4 14zM13 21h8" /></>,
@@ -553,7 +554,7 @@ function HomeButton({ onClick }: { onClick: () => void }) {
       onClick={onClick}
       className={styles.navButton}
     >
-      ← 홈으로
+      <InterfaceIcon name="home" />홈으로
     </button>
   );
 }
@@ -656,6 +657,8 @@ function RadialPad({
     useState<DynamicOverlayDirection | null>(null);
   const [overlayDwellKey, setOverlayDwellKey] = useState(0);
 
+  const itemSignature = items.map(item => item.direction + ":" + item.label).join("|");
+
   const clearHoverDwell = () => {
     if (hoverDwellTimerRef.current !== null) {
       clearTimeout(hoverDwellTimerRef.current);
@@ -686,7 +689,7 @@ function RadialPad({
   useEffect(() => {
     clearHoverDwell();
     clearOverlayHoverDwell();
-  }, [dynamicOverlay?.title, isResting]);
+  }, [dynamicOverlay?.title, isResting, enableDwellSelection, itemSignature]);
 
   const startHoverDwell = (
     event: ReactPointerEvent<HTMLButtonElement>,
@@ -900,7 +903,7 @@ function RadialPad({
         }
       >
         <span className={styles.slotLabel}>
-          {item.label}
+          {item.label === "홈" && <InterfaceIcon name="home" className="inline-block align-middle mr-2" />}{item.label}
         </span>
 
         {item.helper && (
@@ -3270,7 +3273,21 @@ export default function Home() {
     ];
   }
 
-  const fourWayEnabled = directionMode === "4" && screen !== "home" && screen !== "settings";
+  if (screen === "settings") {
+    radialItems = [
+      { direction: "n", label: "8방향", action: () => setDirectionMode("8") },
+      { direction: "e", label: "4방향", action: () => setDirectionMode("4") },
+      { direction: "w", label: "기존 그룹 입력", action: () => setKoreanDirectLayout("group") },
+      { direction: "s", label: "천지인 입력", action: () => setKoreanDirectLayout("cheonjiin") },
+      { direction: "sw", label: "홈", action: goHome },
+    ];
+  }
+
+  const fourWayEnabled = directionMode === "4";
+  const dwellSelectionEnabled = !toolbarHasSelection && (
+    quickRepliesOpen || screen === "category-menu" || screen === "category" ||
+    (screen === "free-input" && inputMode === "initial")
+  );
   const fourWayUtilityItems = radialItems.filter(isFourWayUtilityItem);
   const fourWayContentItems = radialItems.filter(
     (item) => !isFourWayUtilityItem(item)
@@ -3327,6 +3344,7 @@ export default function Home() {
       }))
     : displayRadialItems;
 
+  const dwellContext = [screen, inputMode, initialStage, englishInitialStage, directStage, fourWayUtilityOpen, fourWayPage, quickRepliesOpen, interactionItems.map(item => item.direction + ":" + item.label).join("|")].join("/");
   const radialItemsRef = useRef<RadialItem[]>(interactionItems);
   const activeDirectionRef = useRef<Direction | null>(activeDirection);
   const isRestingRef = useRef(isResting);
@@ -3376,6 +3394,7 @@ export default function Home() {
         if (quickRepliesOpen) { setQuickRepliesOpen(false); return; }
         if (dynamicInitialOverlay) { dynamicInitialOverlay.onDismiss(); return; }
         setFourWayUtilityOpen(false);
+        setFourWayPage(0);
         setSelectedSentence("");
       }
     };
@@ -3413,10 +3432,8 @@ export default function Home() {
   const scheduleDirectionSequenceClear = () => {
     clearDirectionTimer();
 
-    const clearDelay =
-      screenRef.current === "free-input" && inputModeRef.current === "initial"
-        ? 1850
-        : 1500;
+    // Keep the direction alive beyond the 1.5-second dwell selection.
+    const clearDelay = 1850;
 
     directionClearTimerRef.current = setTimeout(() => {
       directionClearTimerRef.current = null;
@@ -3429,7 +3446,7 @@ export default function Home() {
     const previous = directionSequenceRef.current;
     let next: ArrowKey[];
 
-    if (previous.length === 0) {
+    if (directionModeRef.current === "4" || previous.length === 0) {
       next = [key];
     } else if (previous.length === 1) {
       const first = previous[0];
@@ -3449,8 +3466,7 @@ export default function Home() {
     directionSequenceRef.current = next;
     setHeldArrowKeys(next);
 
-    // 마지막 방향키 입력 이후 1.5초 동안 새 입력이 없으면
-    // 저장된 방향과 버튼 강조를 자동으로 해제합니다.
+    // 시선 유지 선택이 끝날 시간을 확보한 뒤 방향 강조를 해제합니다.
     scheduleDirectionSequenceClear();
   };
 
@@ -3612,8 +3628,6 @@ export default function Home() {
 
           if (
             directionModeRef.current === "4" &&
-            screenRef.current !== "home" &&
-            screenRef.current !== "settings" &&
             fourWayHasUtilitiesRef.current
           ) {
             setFourWayUtilityOpen((previous) => !previous);
@@ -3688,8 +3702,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const longGazeEnabled =
-      !toolbarHasSelection && !quickRepliesOpen && screen === "free-input" && inputMode === "initial";
+    const longGazeEnabled = dwellSelectionEnabled;
 
     if (
       !longGazeEnabled ||
@@ -3712,7 +3725,7 @@ export default function Home() {
         (candidate) => candidate.direction === targetDirection
       );
 
-      if (!latestTarget || isRestingRef.current || blinkStartRef.current !== null) return;
+      if (!latestTarget || latestTarget.label !== target.label || isRestingRef.current || blinkStartRef.current !== null) return;
 
       latestTarget.action();
       clearDirectionSequence();
@@ -3731,6 +3744,8 @@ export default function Home() {
     selectedInitialGroup,
     quickRepliesOpen,
     toolbarHasSelection,
+    dwellSelectionEnabled,
+    dwellContext,
   ]);
 
   useEffect(() => {
@@ -3755,8 +3770,8 @@ export default function Home() {
   if (screen === "home") {
     const categoryActive = activeDirection === "w";
     const inputActive = activeDirection === "e";
-    const manualActive = activeDirection === "n";
-    const settingsActive = activeDirection === "ne";
+    const manualActive = activeDirection === displayRadialItems.find(item => item.label === "사용설명서")?.direction;
+    const settingsActive = activeDirection === displayRadialItems.find(item => item.label === "설정")?.direction;
     const emergencyDirections: Direction[] = ["sw", "s", "se"];
 
     const openManual = () => {
@@ -3795,6 +3810,12 @@ export default function Home() {
 
           </div>
           {statusBox}
+          {fourWayEnabled ? <RadialPad
+            items={displayRadialItems} activeDirection={activeDirection}
+            isResting={isResting} isBlinkPressed={isBlinkPressed} layoutMode="4"
+            centerTitle="홈" centerText="원하는 기능을 선택하세요."
+            onCenter={toggleRestFromHome} onCenterLong={toggleRestFromHome}
+          /> : <>
           <section className={styles.homeCards} aria-label="대화 시작">
             <button type="button" disabled={isResting} onClick={openCategoryMenu} className={styles.homeCard} data-active={categoryActive}>
               <span className={styles.cardIcon}><InterfaceIcon name="grid" /></span>
@@ -3819,6 +3840,7 @@ export default function Home() {
               ))}
             </div>
           </section>
+          </>}
           <button type="button" onClick={toggleRestFromHome} className={styles.rest} data-active={isResting || (!activeDirection && isBlinkPressed)}><InterfaceIcon name="pause" />{isResting ? "휴식 마치기" : "잠시 쉬기"}</button>
           <button type="button" data-native-controls disabled={isResting} onClick={openConversation} className={styles.historyEntry} data-active={activeDirection === "nw"}>대화 기록 <span>{messages.length}</span></button>
           <footer className={styles.footer}><span>GLIM · AAC</span><span>나의 속도로, 나의 목소리로</span></footer>
@@ -3833,7 +3855,7 @@ export default function Home() {
 
   if (screen === "settings") {
     return (
-      <main className={styles.shell} data-native-controls>
+      <main className={styles.shell}>
         <div className="mx-auto max-w-5xl">
           <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -3846,7 +3868,15 @@ export default function Home() {
             <HomeButton onClick={goHome} />
           </header>
 
-          <section className="grid gap-4 md:grid-cols-2">
+          {fourWayEnabled ? <RadialPad
+            items={displayRadialItems} activeDirection={activeDirection}
+            isResting={isResting} isBlinkPressed={isBlinkPressed} layoutMode="4"
+            centerTitle="설정"
+            centerText={"4방향 · " + (koreanDirectLayout === "group" ? "기존 그룹 입력" : "천지인 입력")}
+            centerHelper={fourWayUtilityOpen ? "설정으로 돌아가기" : "홈 메뉴 열기"}
+            onCenter={() => { setFourWayUtilityOpen(previous => !previous); setFourWayPage(0); }}
+            onCenterLong={() => setIsResting(previous => !previous)}
+          /> : <section className="grid gap-4 md:grid-cols-2" data-native-controls>
             <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="text-sm font-semibold text-teal-600">DIRECTION LAYOUT</p>
               <h2 className="mt-1 text-xl font-bold">입력 방향</h2>
@@ -3923,7 +3953,7 @@ export default function Home() {
                 </button>
               </div>
             </div>
-          </section>
+          </section>}
         </div>
       </main>
     );
@@ -4076,12 +4106,12 @@ export default function Home() {
                 ? "기능"
                 : "나의 문장"
             }
-            centerHelper={!quickRepliesOpen && fourWayEnabled && fourWayHasUtilities ? (fourWayUtilityOpen ? "기능 선택" : "글자 · 문장 선택") : undefined}
+            centerHelper={!quickRepliesOpen && fourWayEnabled && fourWayHasUtilities ? (fourWayUtilityOpen ? "글자 · 문장으로 돌아가기" : "기능 메뉴 열기") : undefined}
             isSpeaking={isSpeaking}
             speakingDurationMs={speakingDurationMs}
             speechAnimationKey={speechAnimationKey}
             enableDwellSelection={
-              !toolbarHasSelection && !quickRepliesOpen && screen === "free-input" && inputMode === "initial"
+              dwellSelectionEnabled
             }
             dwellMs={1500}
             dynamicOverlay={dynamicInitialOverlay}
