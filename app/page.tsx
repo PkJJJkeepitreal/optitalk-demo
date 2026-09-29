@@ -8,6 +8,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
+import styles from "./interface.module.css";
 
 type Screen =
   | "home"
@@ -527,12 +528,26 @@ function getDirectionFromKeys(keys: string[]): Direction | null {
   return null;
 }
 
+function InterfaceIcon({ name, className }: { name: "spark" | "grid" | "write" | "arrow" | "settings" | "guide" | "pause" | "sound"; className?: string }) {
+  const paths = {
+    spark: <><path d="M12 3v4m0 10v4M3 12h4m10 0h4M5.6 5.6l2.8 2.8m7.2 7.2 2.8 2.8M5.6 18.4l2.8-2.8m7.2-7.2 2.8-2.8" /><circle cx="12" cy="12" r="3" /></>,
+    grid: <><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="7" rx="2" /><rect x="3" y="14" width="7" height="7" rx="2" /><path d="M14 17.5h7m-3.5-3.5v7" /></>,
+    write: <><path d="M13.5 5.5 18.5 10.5M4 20l5-1 11-11a3.5 3.5 0 0 0-5-5L4 14zM13 21h8" /></>,
+    arrow: <path d="M4 12h16m-6-6 6 6-6 6" />,
+    settings: <><path d="M4 7h16M4 17h16" /><circle cx="9" cy="7" r="3" fill="currentColor" /><circle cx="16" cy="17" r="3" fill="currentColor" /></>,
+    guide: <><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 1 1 4 2c-1 .5-1.5 1-1.5 2M12 16v.1" /></>,
+    pause: <><path d="M9 5v14m6-14v14" /></>,
+    sound: <><path d="M11 4 5 9H2v6h3l6 5zM15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14" /></>,
+  };
+  return <svg className={className} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
+}
+
 function HomeButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="touch-manipulation rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-400 hover:text-blue-700"
+      className={styles.navButton}
     >
       ← 홈으로
     </button>
@@ -547,8 +562,8 @@ function RadialPad({
   centerText,
   onCenter,
   onCenterLong,
-  centerTitle = "WORK / REST ZONE",
-  centerHelper = "Space를 1.5초 이상 길게 눌러 휴식 전환",
+  centerTitle = "나의 문장",
+  centerHelper,
   isSpeaking = false,
   speakingDurationMs = 2600,
   speechAnimationKey = 0,
@@ -779,10 +794,10 @@ function RadialPad({
   ]);
 
   const renderDwellProgress = (key: number) => (
-    <span className="pointer-events-none absolute inset-x-2 bottom-1 h-1 overflow-hidden rounded-full bg-blue-100/80">
+    <span className="pointer-events-none absolute inset-x-2 bottom-1 h-1 overflow-hidden rounded-full bg-teal-100/80">
       <span
         key={key}
-        className="block h-full origin-left bg-blue-600"
+        className="block h-full origin-left bg-teal-600"
         style={{ animation: `glimDwellProgress ${dwellMs}ms linear forwards` }}
       />
     </span>
@@ -798,7 +813,7 @@ function RadialPad({
       return (
         <div
           key={direction}
-          className={`${sizeClass} rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50`}
+          className={`${sizeClass} ${styles.emptySlot}`}
         />
       );
     }
@@ -817,13 +832,6 @@ function RadialPad({
       isKeyboardActive &&
       !isBlinkPressed &&
       !isResting;
-
-    const normalClass =
-      item.tone === "primary"
-        ? "border-blue-500 bg-blue-600 text-white"
-        : item.tone === "danger"
-          ? "border-red-300 bg-red-50 text-red-800"
-          : "border-slate-200 bg-white text-slate-900";
 
     return (
       <button
@@ -846,50 +854,25 @@ function RadialPad({
         }
         onPointerCancel={() => cancelPointerPress(item.direction)}
         onContextMenu={(event) => event.preventDefault()}
+        data-tone={item.tone ?? "normal"}
+        data-active={isActive && !isResting}
+        data-confirming={(isConfirming || isPointerActive) && !isResting}
+        data-clear={isClearReady && !isResting}
         className={
-          `relative flex ${sizeClass} min-w-0 touch-manipulation select-none flex-col items-center justify-center overflow-hidden rounded-2xl border-2 p-1.5 text-center transition sm:p-2.5 disabled:cursor-not-allowed disabled:opacity-30 ` +
-          (isClearReady && !isResting
-            ? "scale-110 border-red-700 bg-red-600 text-white shadow-xl"
-            : isActive && !isResting
-              ? isConfirming || isPointerActive
-                ? "scale-110 border-blue-700 bg-blue-700 text-white shadow-xl"
-                : "scale-105 border-blue-600 bg-blue-600 text-white shadow-lg"
-              : normalClass)
+          styles.slot + " relative flex " + sizeClass + " min-w-0 touch-manipulation select-none flex-col items-center justify-center overflow-hidden p-2 text-center sm:p-4 disabled:cursor-not-allowed disabled:opacity-30"
         }
       >
-        <span className="break-words text-[clamp(0.82rem,3.6vw,1.125rem)] font-bold leading-tight">
+        <span className={styles.slotLabel}>
           {item.label}
         </span>
 
         {item.helper && (
           <span
-            className={
-              "mt-1 break-words text-[clamp(0.62rem,2.5vw,0.75rem)] leading-tight sm:mt-1.5 " +
-              (isClearReady
-                ? "text-red-100"
-                : isActive
-                  ? "text-blue-100"
-                  : item.tone === "primary"
-                    ? "text-blue-100"
-                    : "text-slate-500")
-            }
+            className={styles.slotHelper}
           >
             {item.helper}
           </span>
         )}
-
-        <span
-          className={
-            "mt-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold sm:mt-2 sm:px-2 sm:py-1 sm:text-[10px] " +
-            (isActive
-              ? "bg-white/20 text-white"
-              : item.tone === "primary"
-                ? "bg-white/15 text-white"
-                : "bg-slate-100 text-slate-500")
-          }
-        >
-          {DIRECTION_KEY_LABEL[direction]}
-        </span>
 
         {(isHoverDwell || showKeyboardDwell) &&
           renderDwellProgress(
@@ -937,7 +920,7 @@ function RadialPad({
           <button
             type="button"
             onClick={dynamicOverlay.onDismiss}
-            className="pointer-events-auto absolute left-1/2 top-1/2 z-10 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 touch-manipulation items-center justify-center rounded-full border-2 border-blue-500 bg-slate-900 text-xs font-bold text-white shadow-xl sm:h-16 sm:w-16"
+            className="pointer-events-auto absolute left-1/2 top-1/2 z-10 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 touch-manipulation items-center justify-center rounded-full border-2 border-teal-500 bg-slate-900 text-xs font-bold text-white shadow-xl sm:h-16 sm:w-16"
           >
             {dynamicOverlay.title}
           </button>
@@ -995,24 +978,16 @@ function RadialPad({
                 className={
                   `pointer-events-auto absolute ${overlayOptionPosition[option.direction]} flex h-16 w-16 touch-manipulation select-none flex-col items-center justify-center overflow-hidden rounded-full border-2 text-center shadow-xl transition sm:h-[4.5rem] sm:w-[4.5rem] ` +
                   (isActive
-                    ? "scale-110 border-blue-700 bg-blue-600 text-white"
-                    : "border-blue-300 bg-white text-slate-950")
+                    ? "scale-110 border-teal-700 bg-teal-600 text-white"
+                    : "border-teal-300 bg-white text-slate-950")
                 }
               >
                 <span className="text-xl font-black sm:text-2xl">{option.label}</span>
-                <span
-                  className={
-                    "mt-0.5 text-[9px] font-bold " +
-                    (isActive ? "text-blue-100" : "text-slate-500")
-                  }
-                >
-                  {DIRECTION_KEY_LABEL[option.direction]}
-                </span>
                 {option.helper && (
                   <span
                     className={
                       "mt-0.5 max-w-[90%] truncate text-[8px] " +
-                      (isActive ? "text-blue-100" : "text-slate-400")
+                      (isActive ? "text-teal-100" : "text-slate-400")
                     }
                   >
                     {option.helper}
@@ -1035,7 +1010,7 @@ function RadialPad({
   const centerIsPressed = !activeDirection && isBlinkPressed;
 
   return (
-    <div className="relative">
+    <div className={"relative " + styles.pad}>
       <div className="space-y-2 sm:space-y-3">
         {layoutMode === "8" ? (
           <div className="grid grid-cols-3 gap-2 sm:gap-3">
@@ -1083,21 +1058,15 @@ function RadialPad({
               centerPointerStartRef.current = null;
             }}
             onContextMenu={(event) => event.preventDefault()}
-            className={
-              "relative flex min-h-[clamp(11rem,42vh,19rem)] min-w-0 touch-manipulation select-none flex-col items-center justify-center overflow-hidden rounded-3xl border-2 px-3 py-5 text-center transition sm:px-5 sm:py-7 md:px-8 md:py-10 " +
-              (isResting
-                ? "border-emerald-500 bg-emerald-600 text-white"
-                : centerIsPressed
-                  ? "scale-[1.03] border-blue-600 bg-slate-800 text-white shadow-xl"
-                  : isSpeaking
-                    ? "border-blue-500 bg-blue-100 text-slate-950"
-                    : "border-slate-700 bg-slate-900 text-white")
-            }
+            data-resting={isResting}
+            data-speaking={isSpeaking}
+            data-pressed={centerIsPressed}
+            className={styles.center + " relative flex min-h-[clamp(11rem,42vh,19rem)] min-w-0 touch-manipulation select-none flex-col items-center justify-center overflow-hidden px-3 py-5 text-center sm:px-5 sm:py-7"}
           >
             {isSpeaking && !isResting && (
               <div
                 key={speechAnimationKey}
-                className="pointer-events-none absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-blue-400/60 to-transparent"
+                className="pointer-events-none absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-teal-400/60 to-transparent"
                 style={{
                   animation: `optitalkSpeechSweep ${speakingDurationMs}ms linear forwards`,
                 }}
@@ -1105,39 +1074,9 @@ function RadialPad({
             )}
 
             <div className="relative z-10 flex w-full flex-col items-center">
-              <span
-                className={
-                  "rounded-full px-3 py-1 text-xs font-bold tracking-wide " +
-                  (isResting
-                    ? "bg-white/20 text-white"
-                    : isSpeaking
-                      ? "bg-blue-600 text-white"
-                      : "bg-white/10 text-slate-200")
-                }
-              >
-                {isResting ? "REST MODE" : isSpeaking ? "SPEAKING" : centerTitle}
-              </span>
-
-              <p className="mt-3 max-w-full whitespace-pre-line break-words text-[clamp(1.15rem,5vw,2.25rem)] font-bold leading-relaxed sm:mt-5">
-                {isResting ? "휴식 중입니다." : centerText}
-              </p>
-
-              <span
-                className={
-                  "mt-3 break-words text-[clamp(0.62rem,2.5vw,0.875rem)] font-semibold sm:mt-5 " +
-                  (isResting
-                    ? "text-emerald-100"
-                    : isSpeaking
-                      ? "text-blue-800"
-                      : "text-slate-300")
-                }
-              >
-                {isResting
-                  ? "Space를 1.5초 이상 길게 눌러 휴식 해제 · 클릭 가능"
-                  : isSpeaking
-                    ? "음성 출력이 끝나면 Work Zone이 초기화됩니다."
-                    : centerHelper + " · 클릭 가능"}
-              </span>
+              <span className={styles.centerBadge}>{isResting ? "잠시 쉬어가요" : isSpeaking ? "말하는 중" : centerTitle}</span>
+              <div className={styles.centerText}>{isResting ? "휴식 중입니다." : centerText}</div>
+              {isResting ? <span className={styles.centerHint}>휴식 마치기</span> : !isSpeaking && centerHelper ? <span className={styles.centerHint}>{centerHelper}</span> : null}
             </div>
           </button>
 
@@ -2054,13 +1993,11 @@ export default function Home() {
       {
         direction: "s",
         label: "홈",
-        helper: "첫 화면으로",
         action: goHome,
       },
       {
         direction: "se",
         label: "자유 입력",
-        helper: "초성 입력 시작",
         action: openFreeInput,
         tone: "primary",
       }
@@ -2073,8 +2010,8 @@ export default function Home() {
       label: phrase,
       helper:
         selectedSentence === phrase
-          ? "선택됨 · 다시 선택하면 말하기"
-          : "문장 선택",
+          ? "선택됨"
+          : undefined,
       action: () => {
         if (selectedSentence === phrase) {
           speak(phrase);
@@ -2090,7 +2027,6 @@ export default function Home() {
       {
         direction: "s",
         label: "뒤로",
-        helper: "카테고리 목록",
         action: () => {
           setSelectedSentence("");
           setScreen("category-menu");
@@ -2099,7 +2035,6 @@ export default function Home() {
       {
         direction: "se",
         label: "말하기",
-        helper: "Enter · Converge",
         action: () => speak(selectedSentence),
         tone: "primary",
       }
@@ -2113,10 +2048,7 @@ export default function Home() {
       radialItems = groups.map((group, index) => ({
         direction: INPUT_DIRECTION_ORDER[index],
         label: group + " 그룹",
-        helper:
-          selectedInitialGroup === group && initialStage === "letters"
-            ? "선택됨 · 위 레이어에 펼쳐짐"
-            : INITIAL_GROUP_MAP[group].join(" · "),
+        helper: INITIAL_GROUP_MAP[group].join(" · "),
         action: () => {
           setSelectedInitialGroup(group);
           setInitialStage("letters");
@@ -2132,7 +2064,6 @@ export default function Home() {
           direction: "e",
           label: "지우기",
           longAction: clearCurrentWorkZone,
-          helper: "초성 한 글자 삭제",
           action: () => {
             if (initialInput) {
               setInitialInput((previous) => previous.slice(0, -1));
@@ -2147,14 +2078,12 @@ export default function Home() {
         {
           direction: "sw",
           label: "완전 자유 입력",
-          helper: "현재 문장을 유지하고 자모 입력",
           action: switchToDirectInput,
           tone: "primary",
         },
         {
           direction: "s",
           label: "문장 추천",
-          helper: "입력한 초성으로 시작하는 문장 완성",
           action: () => {
             void loadInitialRecommendations();
           },
@@ -2162,7 +2091,6 @@ export default function Home() {
         {
           direction: "se",
           label: "홈",
-          helper: "첫 화면으로",
           action: goHome,
         }
       );
@@ -2190,7 +2118,7 @@ export default function Home() {
             direction: overlayDirections[index],
             label: letter,
             helper: DOUBLE_CONSONANT_MAP[letter]
-              ? `Long blink → ${DOUBLE_CONSONANT_MAP[letter]}`
+              ? `쌍자음 ${DOUBLE_CONSONANT_MAP[letter]}`
               : undefined,
             action: () => selectInitialLetter(letter, false),
             longAction: DOUBLE_CONSONANT_MAP[letter]
@@ -2214,8 +2142,8 @@ export default function Home() {
         label: sentence,
         helper:
           selectedSentence === sentence
-            ? "선택됨 · 다시 선택하면 말하기"
-            : "추천 문장",
+            ? "선택됨"
+            : undefined,
         action: () => {
           if (selectedSentence === sentence) {
             speak(sentence);
@@ -2231,7 +2159,6 @@ export default function Home() {
         {
           direction: "s",
           label: "초성 입력",
-          helper: "입력 화면으로",
           action: () => {
             setSelectedSentence("");
             setRecommendedSentences([]);
@@ -2247,9 +2174,9 @@ export default function Home() {
               ? "말하기"
               : "추천 새로고침",
           helper: isRecommendationLoading
-            ? "Gemini 응답 대기"
+            ? "문장 생성 중"
             : selectedSentence
-              ? "Enter · Converge"
+              ? undefined
               : "새 문장 6개 생성",
           action: () => {
             if (isRecommendationLoading) return;
@@ -2291,7 +2218,6 @@ export default function Home() {
           direction: "e",
           label: "지우기",
           longAction: clearCurrentWorkZone,
-          helper: "영어 초성 한 글자 삭제",
           action: () => {
             if (englishInitialInput) setEnglishInitialInput((previous) => previous.slice(0, -1));
             else setCommittedInputSegments((previous) => deleteLastInputSegmentCharacter(previous));
@@ -2301,19 +2227,16 @@ export default function Home() {
         {
           direction: "sw",
           label: "English 자유 입력",
-          helper: "고유명사를 직접 입력",
           action: switchToDirectInput,
         },
         {
           direction: "s",
           label: "한글 초성 입력",
-          helper: "현재 입력을 유지하고 전환",
           action: switchToInitialInput,
         },
         {
           direction: "se",
           label: "추천",
-          helper: "영어 초성으로 문장 완성",
           action: () => void loadEnglishInitialRecommendations(),
           tone: "primary",
         }
@@ -2325,7 +2248,6 @@ export default function Home() {
       radialItems = subgroups.map((subgroup, index) => ({
         direction: INPUT_DIRECTION_ORDER[index],
         label: subgroup,
-        helper: "Group4 하위 그룹",
         action: () => {
           setSelectedEnglishInitialGroup("Group4");
           setSelectedEnglishInitialGroup4Subgroup(subgroup);
@@ -2339,7 +2261,6 @@ export default function Home() {
           direction: "e",
           label: "지우기",
           longAction: clearCurrentWorkZone,
-          helper: "영어 초성 한 글자 삭제",
           action: () => {
             if (englishInitialInput) setEnglishInitialInput((previous) => previous.slice(0, -1));
             else setCommittedInputSegments((previous) => deleteLastInputSegmentCharacter(previous));
@@ -2349,7 +2270,6 @@ export default function Home() {
         {
           direction: "sw",
           label: "그룹으로",
-          helper: "ESCG 그룹 선택",
           action: () => {
             setSelectedEnglishInitialGroup(null);
             setSelectedEnglishInitialGroup4Subgroup(null);
@@ -2359,13 +2279,11 @@ export default function Home() {
         {
           direction: "s",
           label: "English 자유 입력",
-          helper: "고유명사를 직접 입력",
           action: switchToDirectInput,
         },
         {
           direction: "se",
           label: "추천",
-          helper: "영어 초성으로 문장 완성",
           action: () => void loadEnglishInitialRecommendations(),
         }
       );
@@ -2397,7 +2315,6 @@ export default function Home() {
           direction: "e",
           label: "지우기",
           longAction: clearCurrentWorkZone,
-          helper: "영어 초성 한 글자 삭제",
           action: () => {
             if (englishInitialInput) setEnglishInitialInput((previous) => previous.slice(0, -1));
             else setCommittedInputSegments((previous) => deleteLastInputSegmentCharacter(previous));
@@ -2407,7 +2324,6 @@ export default function Home() {
         {
           direction: "sw",
           label: "English 자유 입력",
-          helper: "고유명사를 직접 입력",
           action: switchToDirectInput,
         },
         {
@@ -2438,7 +2354,6 @@ export default function Home() {
           : {
               direction: "se",
               label: "추천",
-              helper: "영어 초성으로 문장 완성",
               action: () => void loadEnglishInitialRecommendations(),
             }
       );
@@ -2453,7 +2368,7 @@ export default function Home() {
       radialItems = isRecommendationLoading ? [] : suggestionsToShow.map((sentence, index) => ({
         direction: SIX_DIRECTION_ORDER[index],
         label: sentence,
-        helper: selectedSentence === sentence ? "선택됨 · 다시 선택하면 말하기" : "추천 문장",
+        helper: selectedSentence === sentence ? "선택됨" : undefined,
         action: () => {
           if (selectedSentence === sentence) speak(sentence);
           else setSelectedSentence(sentence);
@@ -2465,7 +2380,6 @@ export default function Home() {
         {
           direction: "s",
           label: "English 초성 입력",
-          helper: "입력 화면으로",
           action: () => {
             setSelectedSentence("");
             setRecommendedSentences([]);
@@ -2476,7 +2390,7 @@ export default function Home() {
         {
           direction: "se",
           label: isRecommendationLoading ? "생성 중..." : selectedSentence ? "말하기" : "추천 새로고침",
-          helper: isRecommendationLoading ? "Gemini 응답 대기" : selectedSentence ? "Enter · Converge" : "새 문장 6개 생성",
+          helper: isRecommendationLoading ? "문장 생성 중" : selectedSentence ? undefined : "새 문장 6개 생성",
           action: () => {
             if (isRecommendationLoading) return;
             if (selectedSentence) speak(selectedSentence);
@@ -2522,25 +2436,21 @@ export default function Home() {
             direction: "e",
             label: "지우기",
             longAction: clearCurrentWorkZone,
-            helper: "마지막 글자 삭제",
             action: deleteDirectCharacter,
           },
           {
             direction: "sw",
             label: "초성 모드",
-            helper: "현재 문장을 유지하고 초성 입력",
             action: switchToInitialInput,
           },
           {
             direction: "s",
             label: "띄어쓰기",
-            helper: "공백 입력",
             action: addSpace,
           },
           {
             direction: "se",
             label: "문장 추천",
-            helper: "입력 문장 확장",
             action: () => {
               void loadDirectRecommendations();
             },
@@ -2564,25 +2474,21 @@ export default function Home() {
             direction: "e",
             label: "지우기",
             longAction: clearCurrentWorkZone,
-            helper: "입력한 초성 삭제",
             action: deleteDirectCharacter,
           },
           {
             direction: "sw",
             label: "초성 다시 선택",
-            helper: "초성 그룹으로",
             action: startKoreanInitialInput,
           },
           {
             direction: "s",
             label: "띄어쓰기",
-            helper: "현재 입력 확정",
             action: addSpace,
           },
           {
             direction: "se",
             label: "문장 추천",
-            helper: "입력 문장 확장",
             action: () => {
               void loadDirectRecommendations();
             },
@@ -2608,25 +2514,21 @@ export default function Home() {
             direction: "e",
             label: "지우기",
             longAction: clearCurrentWorkZone,
-            helper: "입력한 모음 삭제",
             action: deleteDirectCharacter,
           },
           {
             direction: "sw",
             label: "초성 모드",
-            helper: "현재 문장을 유지하고 초성 입력",
             action: switchToInitialInput,
           },
           {
             direction: "s",
             label: "띄어쓰기",
-            helper: "현재 글자 확정 후 공백",
             action: addSpace,
           },
           {
             direction: "se",
             label: "문장 추천",
-            helper: "입력 문장 확장",
             action: () => {
               void loadDirectRecommendations();
             },
@@ -2656,25 +2558,21 @@ export default function Home() {
           direction: "e",
           label: "지우기",
           longAction: clearCurrentWorkZone,
-          helper: "마지막 자모 삭제",
           action: deleteDirectCharacter,
         },
         {
           direction: "sw",
           label: "뒤로",
-          helper: "자유 입력 메뉴",
           action: () => setDirectStage("root"),
         },
         {
           direction: "s",
           label: "띄어쓰기",
-          helper: "현재 입력 확정",
           action: addSpace,
         },
         {
           direction: "se",
           label: "추천",
-          helper: "문장 추천 보기",
           action: () => {
             void loadDirectRecommendations();
           },
@@ -2692,8 +2590,8 @@ export default function Home() {
         direction: INPUT_DIRECTION_ORDER[index],
         label: letter,
         helper: DOUBLE_CONSONANT_MAP[letter]
-          ? "짧게: " + letter + " · 1.5초 이상: " + DOUBLE_CONSONANT_MAP[letter]
-          : "초성 선택",
+          ? "쌍자음 " + DOUBLE_CONSONANT_MAP[letter]
+          : undefined,
         action: () => selectDirectInitialLetter(letter, false),
         longAction: DOUBLE_CONSONANT_MAP[letter]
           ? () => selectDirectInitialLetter(letter, true)
@@ -2705,13 +2603,11 @@ export default function Home() {
           direction: "e",
           label: "지우기",
           longAction: clearCurrentWorkZone,
-          helper: "마지막 자모 삭제",
           action: deleteDirectCharacter,
         },
         {
           direction: "sw",
           label: "그룹으로",
-          helper: "천지인 자음 그룹",
           action: () => {
             setSelectedCheonjiinInitialGroup(null);
             setDirectStage("cheonjiin-initial-groups");
@@ -2720,13 +2616,11 @@ export default function Home() {
         {
           direction: "s",
           label: "띄어쓰기",
-          helper: "현재 입력 확정",
           action: addSpace,
         },
         {
           direction: "se",
           label: "추천",
-          helper: "문장 추천 보기",
           action: () => {
             void loadDirectRecommendations();
           },
@@ -2762,7 +2656,6 @@ export default function Home() {
         {
           direction: "e",
           label: resolvedVowel ? `확정 ${resolvedVowel}` : "모음 초기화",
-          helper: resolvedVowel ? "현재 조합을 중성으로 입력" : "조합을 처음부터",
           action: resolvedVowel
             ? confirmCheonjiinVowel
             : () => setCheonjiinVowelSequence(""),
@@ -2771,7 +2664,6 @@ export default function Home() {
         {
           direction: "w",
           label: "한 획 지우기",
-          helper: "천지인 조합 한 단계 삭제",
           action: () => {
             if (cheonjiinVowelSequence) {
               setCheonjiinVowelSequence((previous) => previous.slice(0, -1));
@@ -2783,7 +2675,6 @@ export default function Home() {
         {
           direction: "sw",
           label: "뒤로",
-          helper: "현재 글자 상태로",
           action: () => {
             setCheonjiinVowelSequence("");
             setDirectStage("root");
@@ -2792,13 +2683,11 @@ export default function Home() {
         {
           direction: "s",
           label: "띄어쓰기",
-          helper: "현재 글자 확정",
           action: addSpace,
         },
         {
           direction: "se",
           label: "추천",
-          helper: "문장 추천 보기",
           action: () => {
             void loadDirectRecommendations();
           },
@@ -2824,25 +2713,21 @@ export default function Home() {
           direction: "e",
           label: "지우기",
           longAction: clearCurrentWorkZone,
-          helper: "마지막 자모 삭제",
           action: deleteDirectCharacter,
         },
         {
           direction: "sw",
           label: "뒤로",
-          helper: "자유 입력 메뉴",
           action: () => setDirectStage("root"),
         },
         {
           direction: "s",
           label: "띄어쓰기",
-          helper: "현재 글자 확정",
           action: addSpace,
         },
         {
           direction: "se",
           label: "추천",
-          helper: "문장 추천 보기",
           action: () => {
             void loadDirectRecommendations();
           },
@@ -2857,8 +2742,8 @@ export default function Home() {
         direction: INPUT_DIRECTION_ORDER[index],
         label: letter,
         helper: DOUBLE_CONSONANT_MAP[letter]
-          ? "짧게: " + letter + " · 1.5초 이상: " + DOUBLE_CONSONANT_MAP[letter]
-          : "초성 선택",
+          ? "쌍자음 " + DOUBLE_CONSONANT_MAP[letter]
+          : undefined,
         action: () => selectDirectInitialLetter(letter, false),
         longAction: DOUBLE_CONSONANT_MAP[letter]
           ? () => selectDirectInitialLetter(letter, true)
@@ -2870,13 +2755,11 @@ export default function Home() {
           direction: "e",
           label: "지우기",
           longAction: clearCurrentWorkZone,
-          helper: "마지막 자모 삭제",
           action: deleteDirectCharacter,
         },
         {
           direction: "sw",
           label: "그룹으로",
-          helper: "초성 그룹 선택",
           action: () => {
             setSelectedDirectInitialGroup(null);
             setDirectStage("initial-groups");
@@ -2885,13 +2768,11 @@ export default function Home() {
         {
           direction: "s",
           label: "띄어쓰기",
-          helper: "현재 글자 확정",
           action: addSpace,
         },
         {
           direction: "se",
           label: "추천",
-          helper: "문장 추천 보기",
           action: () => {
             void loadDirectRecommendations();
           },
@@ -2918,25 +2799,21 @@ export default function Home() {
           direction: "e",
           label: "지우기",
           longAction: clearCurrentWorkZone,
-          helper: "마지막 자모 삭제",
           action: deleteDirectCharacter,
         },
         {
           direction: "sw",
           label: "뒤로",
-          helper: "자유 입력 메뉴",
           action: () => setDirectStage("root"),
         },
         {
           direction: "s",
           label: "띄어쓰기",
-          helper: "현재 글자 확정",
           action: addSpace,
         },
         {
           direction: "se",
           label: "추천",
-          helper: "문장 추천 보기",
           action: () => {
             void loadDirectRecommendations();
           },
@@ -2958,7 +2835,6 @@ export default function Home() {
       radialItems = pageLetters.map((letter, index) => ({
         direction: INPUT_DIRECTION_ORDER[index],
         label: letter,
-        helper: "중성 모음",
         action: () => {
           addVowelToDirect(letter);
           setSelectedVowelGroup(null);
@@ -2972,7 +2848,6 @@ export default function Home() {
           direction: "e",
           label: "지우기",
           longAction: clearCurrentWorkZone,
-          helper: "마지막 자모 삭제",
           action: deleteDirectCharacter,
         },
         {
@@ -2990,7 +2865,6 @@ export default function Home() {
         {
           direction: "s",
           label: "그룹으로",
-          helper: "모음 그룹 선택",
           action: () => {
             setSelectedVowelGroup(null);
             setVowelPage(0);
@@ -3001,7 +2875,6 @@ export default function Home() {
           ? {
               direction: "se",
               label: fifthVowel,
-              helper: "중성 모음",
               action: () => {
                 addVowelToDirect(fifthVowel);
                 setSelectedVowelGroup(null);
@@ -3043,25 +2916,21 @@ export default function Home() {
           direction: "e",
           label: "지우기",
           longAction: clearCurrentWorkZone,
-          helper: "마지막 자모 삭제",
           action: deleteDirectCharacter,
         },
         {
           direction: "sw",
           label: "뒤로",
-          helper: "자유 입력 메뉴",
           action: () => setDirectStage("root"),
         },
         {
           direction: "s",
           label: "띄어쓰기",
-          helper: "현재 글자 확정",
           action: addSpace,
         },
         {
           direction: "se",
           label: "추천",
-          helper: "문맥 기반 문장 추천",
           action: () => {
             void loadDirectRecommendations();
           },
@@ -3081,7 +2950,6 @@ export default function Home() {
         radialItems = letters.map((letter, index) => ({
           direction: INPUT_DIRECTION_ORDER[index % INPUT_DIRECTION_ORDER.length],
           label: letter,
-          helper: letter.length > 1 ? "문맥 기반 복합 받침" : "받침 선택",
           action: () => {
             commitFinalAndReturnToStart(letter);
           },
@@ -3092,7 +2960,6 @@ export default function Home() {
             direction: "e",
             label: "지우기",
             longAction: clearCurrentWorkZone,
-            helper: "마지막 자모 삭제",
             action: deleteDirectCharacter,
           },
           {
@@ -3104,7 +2971,6 @@ export default function Home() {
           {
             direction: "s",
             label: "그룹으로",
-            helper: "받침 그룹 선택",
             action: () => {
               setSelectedFinalGroup(null);
               setFinalPage(0);
@@ -3115,7 +2981,6 @@ export default function Home() {
           {
             direction: "se",
             label: "추천",
-            helper: "문맥 기반 문장 추천",
             action: () => {
               void loadDirectRecommendations();
             },
@@ -3134,7 +2999,6 @@ export default function Home() {
         radialItems = pageLetters.map((letter, index) => ({
           direction: INPUT_DIRECTION_ORDER[index],
           label: letter,
-          helper: letter.length > 1 ? "문맥 기반 복합 받침" : "받침 선택",
           action: () => {
             // 받침까지 선택되면 현재 글자를 완성하고
             // 다음 글자의 초성 또는 English 선택 화면으로 돌아갑니다.
@@ -3147,7 +3011,6 @@ export default function Home() {
             direction: "e",
             label: "지우기",
             longAction: clearCurrentWorkZone,
-            helper: "마지막 자모 삭제",
             action: deleteDirectCharacter,
           },
           {
@@ -3165,7 +3028,6 @@ export default function Home() {
           {
             direction: "s",
             label: "그룹으로",
-            helper: "받침 그룹 선택",
             action: () => {
               setSelectedFinalGroup(null);
               setFinalPage(0);
@@ -3176,8 +3038,6 @@ export default function Home() {
             ? {
                 direction: "se",
                 label: fifthFinal,
-                helper:
-                  fifthFinal.length > 1 ? "문맥 기반 복합 받침" : "받침 선택",
                 action: () => {
                   commitFinalAndReturnToStart(fifthFinal);
                 },
@@ -3225,25 +3085,21 @@ export default function Home() {
           direction: "e",
           label: "지우기",
           longAction: clearCurrentWorkZone,
-          helper: "마지막 글자 삭제",
           action: deleteDirectCharacter,
         },
         {
           direction: "sw",
           label: "뒤로",
-          helper: "자유 입력 메뉴",
           action: () => setDirectStage("root"),
         },
         {
           direction: "s",
           label: "띄어쓰기",
-          helper: "Space 입력",
           action: addSpace,
         },
         {
           direction: "se",
           label: "추천",
-          helper: "문장 추천 보기",
           action: () => {
             void loadDirectRecommendations();
           },
@@ -3259,7 +3115,6 @@ export default function Home() {
       radialItems = subgroupEntries.map((subgroup, index) => ({
         direction: INPUT_DIRECTION_ORDER[index],
         label: subgroup,
-        helper: "Group4 하위 그룹",
         action: () => {
           setSelectedEnglishGroup("Group4");
           setSelectedEnglishGroup4Subgroup(subgroup);
@@ -3273,13 +3128,11 @@ export default function Home() {
           direction: "e",
           label: "지우기",
           longAction: clearCurrentWorkZone,
-          helper: "마지막 글자 삭제",
           action: deleteDirectCharacter,
         },
         {
           direction: "sw",
           label: "그룹으로",
-          helper: "ESCG 그룹 선택",
           action: () => {
             setSelectedEnglishGroup(null);
             setSelectedEnglishGroup4Subgroup(null);
@@ -3289,13 +3142,11 @@ export default function Home() {
         {
           direction: "s",
           label: "띄어쓰기",
-          helper: "Space 입력",
           action: addSpace,
         },
         {
           direction: "se",
           label: "추천",
-          helper: "문장 추천 보기",
           action: () => {
             void loadDirectRecommendations();
           },
@@ -3329,13 +3180,11 @@ export default function Home() {
           direction: "e",
           label: "지우기",
           longAction: clearCurrentWorkZone,
-          helper: "마지막 글자 삭제",
           action: deleteDirectCharacter,
         },
         {
           direction: "sw",
           label: "띄어쓰기",
-          helper: "Space 입력",
           action: addSpace,
         },
         {
@@ -3367,7 +3216,6 @@ export default function Home() {
           : {
               direction: "se",
               label: "추천",
-              helper: "문장 추천",
               action: () => {
                 void loadDirectRecommendations();
               },
@@ -3388,8 +3236,8 @@ export default function Home() {
         label: sentence,
         helper:
           selectedSentence === sentence
-            ? "선택됨 · 다시 선택하면 말하기"
-            : "추천 문장",
+            ? "선택됨"
+            : undefined,
         action: () => {
           if (selectedSentence === sentence) {
             speak(sentence);
@@ -3405,7 +3253,6 @@ export default function Home() {
         {
           direction: "s",
           label: "자모 입력",
-          helper: "입력 화면으로",
           action: () => {
             setSelectedSentence("");
             setRecommendedSentences([]);
@@ -3421,9 +3268,9 @@ export default function Home() {
               ? "말하기"
               : "추천 새로고침",
           helper: isRecommendationLoading
-            ? "Gemini 응답 대기"
+            ? "문장 생성 중"
             : selectedSentence
-              ? "Enter · Converge"
+              ? undefined
               : "새 문장 6개 생성",
           action: () => {
             if (isRecommendationLoading) return;
@@ -3835,28 +3682,11 @@ export default function Home() {
   }, [screen, initialStage, englishInitialStage, directStage, inputMode, directionMode]);
 
   const statusBox = (
-    <div className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm">
-      <span className="font-semibold">현재 방향:</span>{" "}
-      {activeDirection ? DIRECTION_KEY_LABEL[activeDirection] : "정면"}
-      {" · "}
-      <span className="font-semibold">Blink:</span>{" "}
-      {isBlinkPressed ? "감지됨" : "대기"}
-      {" · "}
-      <span className="font-semibold">상태:</span>{" "}
-      {isResting ? "휴식" : "입력 가능"}
-      {screen !== "home" && screen !== "settings" && (
-        <>
-          {" · "}
-          <span className="font-semibold">방향:</span> {directionMode}방향
-          {screen === "free-input" && inputMode === "direct" && (
-            <>
-              {" · "}
-              <span className="font-semibold">한글:</span>{" "}
-              {koreanDirectLayout === "cheonjiin" ? "천지인" : "그룹 입력"}
-            </>
-          )}
-        </>
-      )}
+    <div className={styles.status}>
+      <span className={styles.statusReady}><span className={styles.statusDot} />{isResting ? "쉬어가는 중" : isSpeaking ? "말하는 중" : "대화 준비 완료"}</span>
+      <span className={styles.statusPill}>{directionMode}방향</span>
+      {screen === "manual" && <span className={styles.statusPill}>{activeDirection ? DIRECTION_KEY_LABEL[activeDirection] : "정면"} · {isBlinkPressed ? "Blink 감지" : "대기"}</span>}
+      {screen === "free-input" && inputMode === "direct" && <span className={styles.statusPill}>{koreanDirectLayout === "cheonjiin" ? "천지인" : "그룹 입력"}</span>}
     </div>
   );
 
@@ -3885,163 +3715,50 @@ export default function Home() {
     };
 
     return (
-      <main className="min-h-[100dvh] bg-slate-100 p-2 text-slate-900 sm:p-4 md:p-8">
-        <div className="mx-auto max-w-6xl">
-          <header className="mb-4 flex flex-wrap items-start justify-between gap-3 sm:mb-8 sm:gap-4">
-            <div>
-              <p className="text-sm font-semibold text-blue-600">
-                EOG · EMG · LLM 기반 AAC
-              </p>
-              <h1 className="mt-1 text-3xl font-bold sm:text-4xl">Glim-AAC</h1>
-              <p className="mt-2 text-sm text-slate-600 sm:text-base">
-                눈의 움직임으로 원하는 표현을 선택하세요.
-              </p>
+      <main className={styles.shell}>
+        <div className={styles.container}>
+          <header className={styles.header}>
+            <div className={styles.brand}>
+              <span className={styles.brandMark}><InterfaceIcon name="spark" /></span>
+              <span className={styles.brandName}>Glim<span className="font-normal text-[#789184]"> · AAC</span></span>
             </div>
-
-            <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={isResting}
-              onClick={openManual}
-              className={
-                "rounded-xl border px-4 py-2 text-sm font-semibold shadow-sm transition disabled:opacity-30 " +
-                (manualActive
-                  ? "scale-105 border-blue-600 bg-blue-600 text-white"
-                  : "border-slate-300 bg-white text-slate-700 hover:border-blue-400")
-              }
-            >
-              Demo 사용설명서 · ↑
-            </button>
-            <button
-              type="button"
-              disabled={isResting}
-              onClick={() => {
-                setIsResting(false);
-                setScreen("settings");
-              }}
-              className={
-                "rounded-xl border px-4 py-2 text-sm font-semibold shadow-sm transition disabled:opacity-30 " +
-                (settingsActive
-                  ? "scale-105 border-slate-800 bg-slate-800 text-white"
-                  : "border-slate-300 bg-white text-slate-700 hover:border-slate-500")
-              }
-            >
-              ⚙ 설정 · ↑+→
-            </button>
-            </div>
+            <nav className={styles.nav} aria-label="도움말과 설정">
+              <button type="button" disabled={isResting} onClick={openManual} className={styles.navButton} data-active={manualActive}><InterfaceIcon name="guide" />사용설명서</button>
+              <button type="button" disabled={isResting} onClick={() => { setIsResting(false); setScreen("settings"); }} className={styles.navButton} data-active={settingsActive}><InterfaceIcon name="settings" />설정</button>
+            </nav>
           </header>
-
+          <div className={styles.intro}>
+            <p className={styles.eyebrow}>A LITTLE GLIM, A BIG CONVERSATION</p>
+            <h1>지금, 어떤 이야기를 나눌까요?</h1>
+            <p>당신의 생각이, 당신의 말로.</p>
+          </div>
           {statusBox}
-
-          <section className="mt-4 grid grid-cols-1 gap-3 sm:mt-5 sm:grid-cols-2 sm:gap-5">
-            <button
-              type="button"
-              disabled={isResting}
-              onClick={openCategoryMenu}
-              className={
-                "min-h-44 touch-manipulation rounded-3xl border-2 p-5 text-left shadow-sm transition sm:min-h-64 sm:p-7 md:min-h-80 md:p-8 disabled:opacity-30 " +
-                (categoryActive
-                  ? "scale-105 border-blue-800 bg-blue-800 text-white shadow-xl"
-                  : "border-blue-500 bg-blue-600 text-white hover:-translate-y-1 hover:bg-blue-700")
-              }
-            >
-              <span
-                className={
-                  "flex h-16 w-16 items-center justify-center rounded-2xl text-4xl sm:h-20 sm:w-20 sm:rounded-3xl sm:text-5xl md:h-24 md:w-24 md:text-6xl " +
-                  "bg-white/15"
-                }
-              >
-                ◫
-              </span>
-              <p className="mt-6 text-2xl font-bold sm:mt-8 sm:text-3xl md:mt-10">카테고리 선택</p>
-              <p
-                className={
-                  "mt-3 text-lg " +
-                  "text-blue-100"
-                }
-              >
-                왼쪽 방향키 + Space
-              </p>
+          <section className={styles.homeCards} aria-label="대화 시작">
+            <button type="button" disabled={isResting} onClick={openCategoryMenu} className={styles.homeCard} data-active={categoryActive}>
+              <span className={styles.cardIcon}><InterfaceIcon name="grid" /></span>
+              <h2>카테고리 선택</h2>
+              <p>일상에 필요한 표현들</p>
+              <InterfaceIcon name="arrow" className={styles.cardArrow} />
             </button>
-
-            <button
-              type="button"
-              disabled={isResting}
-              onClick={openFreeInput}
-              className={
-                "min-h-44 touch-manipulation rounded-3xl border-2 p-5 text-left text-white shadow-sm transition sm:min-h-64 sm:p-7 md:min-h-80 md:p-8 disabled:opacity-30 " +
-                (inputActive
-                  ? "scale-105 border-blue-800 bg-blue-800 shadow-xl"
-                  : "border-blue-500 bg-blue-600 hover:-translate-y-1 hover:bg-blue-700")
-              }
-            >
-              <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 text-4xl sm:h-20 sm:w-20 sm:rounded-3xl sm:text-5xl md:h-24 md:w-24 md:text-6xl">
-                ⌨
-              </span>
-              <p className="mt-6 text-2xl font-bold sm:mt-8 sm:text-3xl md:mt-10">자유 입력</p>
-              <p className="mt-3 text-lg text-blue-100">
-                오른쪽 방향키 + Space
-              </p>
+            <button type="button" disabled={isResting} onClick={openFreeInput} className={styles.homeCard + " " + styles.inputCard} data-active={inputActive}>
+              <span className={styles.cardIcon}><InterfaceIcon name="write" /></span>
+              <h2>자유 입력</h2>
+              <p>내가 하고 싶은 이야기</p>
+              <InterfaceIcon name="arrow" className={styles.cardArrow} />
             </button>
           </section>
-
-          <section className="mt-6 rounded-3xl border-2 border-red-200 bg-red-50 p-5">
-            <div className="mb-4">
-              <p className="text-sm font-semibold text-red-600">
-                EMERGENCY EXPRESSIONS
-              </p>
-              <h2 className="mt-1 text-xl font-bold text-red-900">
-                긴급 표현
-              </h2>
-              <p className="mt-1 text-sm text-red-700">
-                고정 문장을 즉시 음성으로 출력합니다. 좌하단·하단·우하단 방향으로도 선택할 수 있습니다.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
-              {EMERGENCY_MESSAGES.map((message, index) => {
-                const direction = emergencyDirections[index];
-                const isActive = activeDirection === direction;
-
-                return (
-                  <button
-                    key={message}
-                    type="button"
-                    disabled={isResting}
-                    onClick={() => speak(message)}
-                    className={
-                      "min-h-20 touch-manipulation rounded-2xl border-2 px-4 py-3 text-left font-bold transition sm:min-h-24 sm:py-4 disabled:opacity-30 " +
-                      (isActive
-                        ? "scale-105 border-red-800 bg-red-800 text-white shadow-lg"
-                        : "border-red-500 bg-red-600 text-white hover:bg-red-700")
-                    }
-                  >
-                    <span className="block text-base md:text-lg">{message}</span>
-                    <span className="mt-2 block text-xs font-semibold text-red-100">
-                      {DIRECTION_KEY_LABEL[direction]} + Space
-                    </span>
-                  </button>
-                );
-              })}
+          <section className={styles.emergency} aria-label="긴급 표현">
+            <h2 className={styles.sectionTitle}><InterfaceIcon name="sound" />긴급 표현</h2>
+            <div className={styles.emergencyGrid}>
+              {EMERGENCY_MESSAGES.map((message, index) => (
+                <button key={message} type="button" disabled={isResting} onClick={() => speak(message)} className={styles.emergencyButton} data-active={activeDirection === emergencyDirections[index]}>
+                  <span>{message}</span><InterfaceIcon name="sound" />
+                </button>
+              ))}
             </div>
           </section>
-
-          <button
-            type="button"
-            onClick={toggleRestFromHome}
-            className={
-              "mt-6 w-full touch-manipulation rounded-2xl border-2 p-4 text-center font-semibold transition " +
-              (isResting
-                ? "border-emerald-500 bg-emerald-600 text-white"
-                : !activeDirection && isBlinkPressed
-                  ? "scale-[1.01] border-blue-500 bg-slate-800 text-white"
-                  : "border-slate-700 bg-slate-900 text-white")
-            }
-          >
-            {isResting
-              ? "휴식 중 · Space를 1.5초 이상 길게 누르거나 클릭하여 해제"
-              : "휴식 Zone · Space를 1.5초 이상 길게 누르거나 클릭"}
-          </button>
+          <button type="button" onClick={toggleRestFromHome} className={styles.rest} data-active={isResting || (!activeDirection && isBlinkPressed)}><InterfaceIcon name="pause" />{isResting ? "휴식 마치기" : "잠시 쉬기"}</button>
+          <footer className={styles.footer}><span>GLIM · AAC</span><span>나의 속도로, 나의 목소리로</span></footer>
         </div>
       </main>
     );
@@ -4049,11 +3766,11 @@ export default function Home() {
 
   if (screen === "settings") {
     return (
-      <main className="min-h-[100dvh] bg-slate-100 p-2 text-slate-900 sm:p-4 md:p-8">
+      <main className={styles.shell}>
         <div className="mx-auto max-w-5xl">
           <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-blue-600">GLIM-AAC SETTINGS</p>
+              <p className="text-sm font-semibold text-teal-600">GLIM-AAC SETTINGS</p>
               <h1 className="mt-1 text-2xl font-bold sm:text-3xl">설정</h1>
               <p className="mt-2 text-sm text-slate-500">
                 선택한 설정은 이 브라우저에 저장됩니다.
@@ -4064,10 +3781,10 @@ export default function Home() {
 
           <section className="grid gap-4 md:grid-cols-2">
             <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-sm font-semibold text-blue-600">DIRECTION LAYOUT</p>
+              <p className="text-sm font-semibold text-teal-600">DIRECTION LAYOUT</p>
               <h2 className="mt-1 text-xl font-bold">입력 방향</h2>
               <p className="mt-2 text-sm text-slate-500">
-                4방향은 상·하·좌·우만 사용합니다. 글자/문장을 우선 배치하고, 정면 짧은 blink 또는 Work Zone 클릭으로 기능 레이어를 엽니다.
+                편안하게 사용할 방향 수를 선택하세요.
               </p>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 {(["8", "4"] as DirectionMode[]).map((mode) => (
@@ -4082,14 +3799,14 @@ export default function Home() {
                     className={
                       "touch-manipulation rounded-2xl border-2 p-4 text-left transition " +
                       (directionMode === mode
-                        ? "border-blue-600 bg-blue-600 text-white"
+                        ? "border-teal-600 bg-teal-600 text-white"
                         : "border-slate-200 bg-slate-50 text-slate-800")
                     }
                   >
                     <span className="block text-2xl font-black">{mode}방향</span>
                     <span className={
                       "mt-1 block text-xs " +
-                      (directionMode === mode ? "text-blue-100" : "text-slate-500")
+                      (directionMode === mode ? "text-teal-100" : "text-slate-500")
                     }>
                       {mode === "8" ? "상하좌우 + 대각선" : "상 · 하 · 좌 · 우"}
                     </span>
@@ -4099,10 +3816,10 @@ export default function Home() {
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-sm font-semibold text-blue-600">KOREAN DIRECT INPUT</p>
+              <p className="text-sm font-semibold text-teal-600">KOREAN DIRECT INPUT</p>
               <h2 className="mt-1 text-xl font-bold">한글 자유 입력 방식</h2>
               <p className="mt-2 text-sm text-slate-500">
-                현재는 완전 자유 입력 모드의 한글 초성·중성 입력에만 적용됩니다. 받침은 기존 그룹 방식을 유지합니다.
+                초성과 모음의 입력 방식입니다. 받침은 그룹으로 선택합니다.
               </p>
               <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <button
@@ -4111,14 +3828,14 @@ export default function Home() {
                   className={
                     "touch-manipulation rounded-2xl border-2 p-4 text-left transition " +
                     (koreanDirectLayout === "group"
-                      ? "border-blue-600 bg-blue-600 text-white"
+                      ? "border-teal-600 bg-teal-600 text-white"
                       : "border-slate-200 bg-slate-50 text-slate-800")
                   }
                 >
                   <span className="block text-lg font-bold">기존 그룹 입력</span>
                   <span className={
                     "mt-1 block text-xs " +
-                    (koreanDirectLayout === "group" ? "text-blue-100" : "text-slate-500")
+                    (koreanDirectLayout === "group" ? "text-teal-100" : "text-slate-500")
                   }>ㄱ·ㅁ·ㅅ·ㅇ / ㅡ·ㅣ·ㅛ·ㅕ</span>
                 </button>
                 <button
@@ -4127,14 +3844,14 @@ export default function Home() {
                   className={
                     "touch-manipulation rounded-2xl border-2 p-4 text-left transition " +
                     (koreanDirectLayout === "cheonjiin"
-                      ? "border-blue-600 bg-blue-600 text-white"
+                      ? "border-teal-600 bg-teal-600 text-white"
                       : "border-slate-200 bg-slate-50 text-slate-800")
                   }
                 >
                   <span className="block text-lg font-bold">천지인 입력</span>
                   <span className={
                     "mt-1 block text-xs " +
-                    (koreanDirectLayout === "cheonjiin" ? "text-blue-100" : "text-slate-500")
+                    (koreanDirectLayout === "cheonjiin" ? "text-teal-100" : "text-slate-500")
                   }>자음 그룹 + ㅣ · ㆍ · ㅡ 조합</span>
                 </button>
               </div>
@@ -4147,11 +3864,11 @@ export default function Home() {
 
   if (screen === "manual") {
     return (
-      <main className="min-h-[100dvh] bg-slate-100 p-2 text-slate-900 sm:p-4 md:p-8">
-        <div className="mx-auto max-w-6xl">
+      <main className={styles.shell}>
+        <div className={styles.container}>
           <header className="mb-3 flex flex-wrap items-center justify-between gap-3 sm:mb-5 sm:gap-4">
             <div>
-              <p className="text-sm font-semibold text-blue-600">DEMO GUIDE</p>
+              <p className="text-sm font-semibold text-teal-600">DEMO GUIDE</p>
               <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Demo 사용설명서</h1>
               <p className="mt-2 text-sm text-slate-500">
                 모바일에서는 화면의 버튼을 직접 터치해 선택할 수 있습니다.
@@ -4195,7 +3912,7 @@ export default function Home() {
 
           <section className="mt-5 grid gap-3 sm:grid-cols-3 sm:gap-4">
             <div className="rounded-3xl bg-white p-5 shadow-sm">
-              <p className="text-sm font-semibold text-blue-600">눈 깜빡임</p>
+              <p className="text-sm font-semibold text-teal-600">눈 깜빡임</p>
               <p className="mt-2 text-2xl font-bold">Space</p>
               <p className="mt-3 text-sm text-slate-500">
                 {directionMode === "4"
@@ -4205,7 +3922,7 @@ export default function Home() {
             </div>
 
             <div className="rounded-3xl bg-white p-5 shadow-sm">
-              <p className="text-sm font-semibold text-blue-600">Long blink</p>
+              <p className="text-sm font-semibold text-teal-600">Long blink</p>
               <p className="mt-2 text-2xl font-bold">Space 1.5초 이상</p>
               <p className="mt-3 text-sm text-slate-500">
                 초성 입력에서 ㄱ·ㄷ·ㅂ·ㅅ·ㅈ을 각각 ㄲ·ㄸ·ㅃ·ㅆ·ㅉ으로
@@ -4214,7 +3931,7 @@ export default function Home() {
             </div>
 
             <div className="rounded-3xl bg-white p-5 shadow-sm">
-              <p className="text-sm font-semibold text-blue-600">Converge</p>
+              <p className="text-sm font-semibold text-teal-600">Converge</p>
               <p className="mt-2 text-2xl font-bold">Enter</p>
               <p className="mt-3 text-sm text-slate-500">
                 선택한 문장 또는 입력 중인 문장을 음성으로 출력합니다.
@@ -4244,7 +3961,7 @@ export default function Home() {
   } else if (screen === "category") {
     workZoneText = selectedSentence || "원하는 문장을 선택하세요.";
   } else if (isRecommendationLoading) {
-    workZoneText = "Gemini가 추천 문장을 만들고 있습니다...";
+    workZoneText = "문장을 생각하고 있어요…";
   } else if (recommendationError && !selectedSentence) {
     workZoneText = recommendationError;
   } else if (selectedSentence) {
@@ -4258,7 +3975,7 @@ export default function Home() {
     workZoneText = (
       <div>
         {currentInputSegments.length > 0 && renderInputSegments(currentInputSegments)}
-        <div className="mt-2 text-sm font-semibold text-blue-200">
+        <div className="mt-2 text-sm font-semibold text-teal-800">
           천지인 모음: {cheonjiinVowelSequence}
           {resolved ? ` → ${resolved}` : " · 조합 중"}
         </div>
@@ -4267,25 +3984,21 @@ export default function Home() {
   } else if (currentInputSegments.length > 0) {
     workZoneText = renderInputSegments(currentInputSegments);
   } else if (inputMode === "initial") {
-    workZoneText = `초성을 입력하세요\n예: 물 주세요 → ㅁㅈㅅㅇ`;
+    workZoneText = "어떤 말을 전할까요?";
   } else if (inputMode === "english-initial") {
-    workZoneText = `영어 초성을 입력하세요\n예: I want water → IWW`;
+    workZoneText = "어떤 말을 전할까요?";
   } else {
     workZoneText = "자모를 입력하세요.";
   }
 
   return (
-    <main className="min-h-[100dvh] bg-slate-100 p-2 text-slate-900 sm:p-4 md:p-8">
-      <div className="mx-auto max-w-6xl">
+    <main className={styles.shell}>
+      <div className={styles.container}>
         <header className="mb-3 flex flex-wrap items-end justify-between gap-3 sm:mb-5 sm:gap-4">
           <div>
-            <p className="text-sm font-semibold text-blue-600">GLIM-AAC DEMO</p>
+            <p className="text-sm font-semibold text-teal-600">GLIM · AAC</p>
             <h1 className="mt-1 text-2xl font-bold sm:text-3xl">{pageTitle}</h1>
-            <p className="mt-2 text-sm text-slate-500">
-              {directionMode === "4"
-                ? "상·하·좌·우 방향키 + Space로 선택합니다. 정면 짧은 blink는 글자/기능 레이어를 전환합니다."
-                : "방향키를 누른 뒤 Space를 누르면 선택됩니다. 대각선은 두 방향키를 순서대로 입력합니다."}
-            </p>
+
           </div>
           <HomeButton onClick={goHome} />
         </header>
@@ -4301,18 +4014,10 @@ export default function Home() {
             centerText={workZoneText}
             centerTitle={
               fourWayEnabled && fourWayUtilityOpen
-                ? "FUNCTION LAYER"
-                : "WORK / REST ZONE"
+                ? "기능"
+                : "나의 문장"
             }
-            centerHelper={
-              fourWayEnabled
-                ? fourWayHasUtilities
-                  ? "짧은 정면 blink/클릭: 글자 ↔ 기능 · 1.5초 이상: 휴식"
-                  : "Space를 1.5초 이상 길게 눌러 휴식 전환"
-                : selectedSentence
-                  ? "Enter로 말하기 · Space를 1.5초 이상 길게 눌러 휴식 전환"
-                  : "Space를 1.5초 이상 길게 눌러 휴식 전환"
-            }
+            centerHelper={fourWayEnabled && fourWayHasUtilities ? (fourWayUtilityOpen ? "기능 선택" : "글자 · 문장 선택") : undefined}
             isSpeaking={isSpeaking}
             speakingDurationMs={speakingDurationMs}
             speechAnimationKey={speechAnimationKey}
@@ -4371,9 +4076,7 @@ export default function Home() {
           }
         `}</style>
 
-        <footer className="mt-5 text-center text-sm text-slate-500">
-          Gemini 추천 연결 · {directionMode}방향 입력 · 정면 Long blink는 휴식 전환 · Enter는 Converge
-        </footer>
+        <footer className={styles.footer}><span>GLIM · AAC</span><span>나의 속도로, 나의 목소리로</span></footer>
       </div>
     </main>
   );
