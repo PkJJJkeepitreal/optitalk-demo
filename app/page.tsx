@@ -1193,7 +1193,7 @@ export default function Home() {
   const [showTyping, setShowTyping] = useState(false);
   const [quickRepliesOpen, setQuickRepliesOpen] = useState(false);
   const [editingSentence, setEditingSentence] = useState<string | null>(null);
-  const gestureActionRef = useRef<(gesture: "double" | "frown" | "brows" | "left" | "right") => void>(() => undefined);
+  const gestureActionRef = useRef<(gesture: "double" | "converge" | "frown" | "brows" | "left" | "right") => void>(() => undefined);
   const shortBlinkRef = useRef<ReturnType<typeof createBlinkSequence> | null>(null);
 
   const activeDirection = useMemo(
@@ -3356,7 +3356,7 @@ export default function Home() {
       clearDirectionSequence();
       if (screen === "manual") {
         flashManualGesture(gesture);
-        const descriptions = { double: ["더블 블링크", "Space 두 번"], frown: ["강하게 찡그림", "Enter"], brows: ["눈썹 올리기", "R"], left: ["왼쪽 윙크", "C"], right: ["오른쪽 윙크", "M"] };
+        const descriptions = { double: ["더블 블링크", "Space 두 번"], converge: ["Converge", "G"], frown: ["강하게 찡그림", "Enter"], brows: ["눈썹 올리기", "R"], left: ["왼쪽 윙크", "C"], right: ["오른쪽 윙크", "M"] };
         const [name, key] = descriptions[gesture];
         setManualMessage(name + " 동작이 감지되었습니다.\n\n" + key + " 입력입니다.");
         return;
@@ -3372,6 +3372,13 @@ export default function Home() {
         if (fourWayEnabled && fourWayHasUtilities) {
           setFourWayUtilityOpen((previous) => !previous);
           setFourWayPage(0);
+        }
+        return;
+      }
+      if (gesture === "converge") {
+        toolbar.clear();
+        if (screen !== "conversation" && !quickRepliesOpen) {
+          speak(selectedSentence || (inputMode === "direct" ? currentInputText.trim() : ""));
         }
         return;
       }
@@ -3485,7 +3492,7 @@ export default function Home() {
       const editing = event.target instanceof HTMLElement && event.target.closest("input, textarea, select, [contenteditable=true]");
       if (!editing && event.key === "Enter" && event.repeat) { event.preventDefault(); return; }
       if (!editing && !event.repeat && !isRestingRef.current) {
-        const gesture = event.code === "KeyC" ? "left" : event.code === "KeyM" ? "right" : event.key === "Enter" ? "frown" : event.code === "KeyR" ? "brows" : null;
+        const gesture = event.code === "KeyC" ? "left" : event.code === "KeyM" ? "right" : event.code === "KeyG" ? "converge" : event.key === "Enter" ? "frown" : event.code === "KeyR" ? "brows" : null;
         if (gesture) {
           // The history screen owns wink scrolling; avoid a parent rerender
           // replacing its event listener in the middle of this key event.
