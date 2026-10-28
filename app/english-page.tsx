@@ -264,14 +264,11 @@ export default function EnglishHome() {
       radialItems = [...phraseItems(suggestions), utility("s", mode === "initials" ? "English initials" : "English full input", () => { invalidateSuggestions(); resetLetterSelection(); }, { tone: "mode" }),
         utility("se", selectedSentence ? "Speak" : loading ? "Thinking…" : "New suggestions", selectedSentence ? speakDraft : () => void loadRecommendations(), { tone: "primary" })];
     }
-    const deleteIndex = radialItems.findIndex(entry => entry.label === "Delete");
-    const groupsIndex = radialItems.findIndex(entry => entry.label === "Groups");
-    if (deleteIndex !== -1 && groupsIndex !== -1) {
-      const deleteControl = radialItems[deleteIndex];
-      const groupsControl = radialItems[groupsIndex];
-      // Swap list order too, so the 4-direction actions layer follows the same change.
-      radialItems[deleteIndex] = { ...groupsControl, direction: deleteControl.direction };
-      radialItems[groupsIndex] = { ...deleteControl, direction: groupsControl.direction };
+    if (radialItems.some(entry => entry.label === "Delete")) {
+      radialItems = radialItems.map(entry => ({
+        ...entry,
+        direction: entry.direction === "e" ? "se" : entry.direction === "se" ? "e" : entry.direction,
+      }));
     }
   }
   if (quickRepliesOpen && ["compose", "categories", "phrases"].includes(screen)) radialItems = [
