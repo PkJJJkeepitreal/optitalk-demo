@@ -1,4 +1,4 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Glim AAC v3 English is an English-language communication interface for the US competition demo.
 
 ## Getting Started
 
@@ -20,39 +20,49 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## 대화 기록 데모 입력
+## English input
 
-홈 또는 입력 화면의 `대화 기록` 버튼으로 엽니다. 홈에서는 왼쪽 위 방향 선택 후 Space로도 열 수 있습니다. 돌아가면 기존 작성 내용이 유지됩니다.
+Choose **Free input** to start with **English word initials**. Each letter represents one word: `IWW` can expand to “I want water.” Choose **Suggest** to generate English sentences.
 
-- 왼쪽 윙크: 위로 이동. 오른쪽 윙크: 아래로 이동.
-- 카메라 인식기는 아직 포함되지 않습니다. 데모에서는 C(왼쪽) / M(오른쪽) 키 또는 윙크 버튼으로 같은 동작을 시험합니다. 방향키도 지원하며 길게 눌러도 한 번만 이동합니다.
-- `Escape` 또는 `돌아가기` 버튼으로 이전 화면으로 돌아갑니다. 텍스트 입력 중에는 방향키가 편집용으로 동작합니다.
-- 인식기 연동: 완료된 윙크마다 아래 이벤트를 한 번 발행합니다. 프레임마다 발행하지 않습니다. `eye`는 환자 본인의 눈 기준이며, 미러링한 영상의 좌우 기준이 아닙니다.
+The lower-left **English full input** button switches to spelling. Both modes use the same letter groups. Switching modes preserves the draft and whether each segment contains initials or fully spelled text. In 4-direction mode, raise your eyebrows (`R`) to access the actions layer, including the input-mode switch. Full input includes spaces and punctuation through **Space / symbols**.
+
+The UI, built-in phrases, speech output, suggestion prompts, and error messages use English. This version has its own browser storage for preferences and conversation history; previous versions' history remains in their original storage.
+
+## Conversation history
+
+Open **History** from the toolbar or **Conversation history** from Home. Returning preserves the draft.
+
+- Left wink: scroll up. Right wink: scroll down.
+- The demo uses `C` / `M` or the on-screen wink buttons. Arrow keys also scroll the history. Camera recognition is not included.
+- Press `Enter` or `Escape`, or choose **Back**, to return. Typing in a text field keeps normal keyboard behavior.
+- A hardware recognizer can emit the following event once per completed wink. `eye` refers to the user's own eye, not the mirrored video.
 
 ```js
 window.dispatchEvent(new CustomEvent("glim:wink", { detail: { eye: "left" } }));
-// eye: "right" → 아래로 이동
+// eye: "right" scrolls down.
 ```
 
-이 이벤트는 대화 기록 화면이 열려 있을 때만 처리됩니다. 다른 화면의 문자 선택이나 음성 출력에는 영향을 주지 않습니다.
+This event is handled while conversation history is open.
 
 ## Learn More
 
-### ver.3-1 동작 키
+### v3 English gestures
 
-| 동작 | 키 | 기능 |
+| Gesture | Key | Action |
 | --- | --- | --- |
-| 눈 깜빡임 | Space | 방향 선택 (더블 입력 판별을 위해 350ms 대기) |
-| 길게 눈 감기 | Space 1.5초 | 쌍자음 / 방향이 없으면 휴식 전환 |
-| 더블 블링크 | Space 두 번 (350ms 이내) | 작성·선택한 문장 말하기 |
-| Converge | G | 작성·선택한 문장 말하기 |
-| 왼쪽 / 오른쪽 윙크 | C / M | 도구 줄 왼쪽 / 오른쪽 끝부터 지정, 기록에서는 위 / 아래 스크롤 |
-| 강하게 찡그림 | Enter | 음성 중단·현재 선택 취소 / 기록에서 돌아가기 |
-| 눈썹 올리기 | R | 4방향 모드의 글자·문장 / 기능 레이어 전환 |
+| Blink | Space | Select a direction; waits 350 ms to distinguish a double blink |
+| Long blink | Hold Space for 1.5 s | Clear on Delete, speak on a phrase, or toggle rest while facing forward |
+| Double blink | Space twice within 350 ms | Speak the message, or activate the highlighted toolbar button |
+| Converge | G | Speak the selected or fully spelled message |
+| Left / right wink | C / M | Move left / right along the toolbar; scroll history up / down |
+| Strong frown | Enter | Stop speaking and cancel selection; return from history |
+| Eyebrow raise | R | Switch between input and actions in 4-direction mode |
 
-사용설명서에서는 새 동작을 입력하면 감지 결과를 보여줍니다. 텍스트 입력칸과 Ctrl/Alt/Command 조합은 단축키에서 제외합니다. Converge는 G, Enter는 강하게 찡그림 동작입니다. F는 더 이상 동작 키로 사용하지 않습니다.
+The guide shows gesture feedback. Text fields and Ctrl/Alt/Command shortcuts keep their normal behavior. Hold a direction for 1.5 seconds to select initials, categories, phrases, or quick replies.
 
-도구 줄에서 C는 왼쪽으로, M은 오른쪽으로 이동합니다. 아직 지정된 버튼이 없으면 C는 맨 왼쪽, M은 맨 오른쪽을 지정합니다. 비활성 버튼을 건너뛰고 끝에서는 멈춥니다. 지정된 버튼은 Space 한 번으로 실행하며, Enter로 지정을 취소합니다. 지정 중에 Space를 두 번 눌러도 해당 버튼을 한 번만 실행합니다. 방향키를 누르면 도구 지정이 해제되고 기존 방향 선택으로 돌아갑니다.
+Winks start from the leftmost or rightmost toolbar button, skip disabled buttons, and stop at the ends. Space activates the highlighted button. Enter clears the highlight; arrow keys return to directional input.
+
+Set `GEMINI_API_KEY` in `.env.local` for suggestions. Existing English-compatible Gemini requests are used; speech uses the browser's English voice. Tests and a local build were intentionally not run for this change at the user's request.
 
 To learn more about Next.js, take a look at the following resources:
 

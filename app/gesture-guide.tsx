@@ -17,18 +17,18 @@ function FaceIcon({ gesture }: { gesture: Gesture }) {
 }
 
 const gestures: { gesture: Gesture; label: string; key: string; description: string }[] = [
-  { gesture: "blink", label: "눈 깜빡임", key: "Space", description: "방향을 고른 뒤 한 번 눌러 선택합니다.\n\n대각선은 두 방향키를 순서대로 누릅니다." },
-  { gesture: "long", label: "길게 눈 감기", key: "Space 1.5초", description: "자음을 길게 선택하면 쌍자음을 입력합니다.\n\n방향 없이 길게 누르면 휴식 모드를 전환합니다." },
-  { gesture: "double", label: "더블 블링크", key: "Space 두 번", description: "빠르게 두 번 눌러 작성·선택한 문장을 말합니다.\n\n두 번째 입력은 0.35초 안에 해주세요." },
-  { gesture: "converge", label: "Converge", key: "G", description: "두 눈을 안쪽으로 모아 작성·선택한 문장을 바로 말합니다." },
-  { gesture: "left", label: "왼쪽 윙크", key: "C", description: "지정된 도구에서 왼쪽으로 이동합니다. 처음에는 맨 왼쪽을 지정합니다.\n\nSpace로 선택합니다. 대화 기록에서는 위로 스크롤합니다." },
-  { gesture: "right", label: "오른쪽 윙크", key: "M", description: "지정된 도구에서 오른쪽으로 이동합니다. 처음에는 맨 오른쪽을 지정합니다.\n\nSpace로 선택합니다. 대화 기록에서는 아래로 스크롤합니다." },
-  { gesture: "frown", label: "강하게 찡그림", key: "Enter", description: "음성 출력을 멈추고 현재 선택을 취소합니다.\n\n대화 기록에서는 이전 화면으로 돌아갑니다." },
-  { gesture: "brows", label: "눈썹 올리기", key: "R", description: "4방향 모드에서 글자·문장과 기능 레이어를 전환합니다.\n\n작성 중인 내용은 유지됩니다." },
+  { gesture: "blink", label: "Blink", key: "Space", description: "Look toward an option, then blink once to select it.\n\nFor diagonal directions, press the two arrow keys in sequence. Hold your gaze for 1.5 seconds to select initials, categories or quick replies." },
+  { gesture: "long", label: "Long blink", key: "Hold Space · 1.5 s", description: "Face forward and hold to turn rest mode on or off.\n\nHold while looking at Delete to clear your draft, or a phrase to speak it." },
+  { gesture: "double", label: "Double blink", key: "Space twice", description: "Blink twice within 0.35 seconds to speak your message.\n\nIf a toolbar button is highlighted, select that button instead." },
+  { gesture: "converge", label: "Converge", key: "G", description: "Turn both eyes inward to speak the message you selected or spelled." },
+  { gesture: "left", label: "Left wink", key: "C", description: "Move left along the toolbar. Start at the leftmost button.\n\nBlink to select it. In conversation history, scroll up." },
+  { gesture: "right", label: "Right wink", key: "M", description: "Move right along the toolbar. Start at the rightmost button.\n\nBlink to select it. In conversation history, scroll down." },
+  { gesture: "frown", label: "Strong frown", key: "Enter", description: "Stop speaking and cancel the current selection.\n\nIn conversation history, return to the previous screen." },
+  { gesture: "brows", label: "Eyebrow raise", key: "R", description: "In 4-direction mode, switch between input and actions.\n\nYour draft stays in place." },
 ];
 
 export function GestureGuide({ activeGesture }: { activeGesture: Gesture | null }) {
-  return <section className={styles.gestureGuide} aria-label="동작별 입력 키">
+  return <section className={styles.gestureGuide} aria-label="Eye gestures and keyboard shortcuts">
     {gestures.map(item => <article key={item.gesture} className={styles.gestureCard} data-gesture={item.gesture} data-active={activeGesture === item.gesture}>
       <div className={styles.gestureIcon}><FaceIcon gesture={item.gesture} /></div>
       <h2>{item.label}</h2><kbd>{item.key}</kbd><p>{item.description}</p>

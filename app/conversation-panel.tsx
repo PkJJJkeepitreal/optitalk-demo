@@ -5,7 +5,7 @@ import type { ConversationMessage } from "./conversation-model";
 import { addMessage, clearConversation } from "./use-conversation";
 import styles from "./interface.module.css";
 
-const STATUS = { pending: "음성 출력 중", spoken: "말함", interrupted: "출력 중단", failed: "음성 출력 실패", text: "입력됨" };
+const STATUS = { pending: "Speaking", spoken: "Spoken", interrupted: "Interrupted", failed: "Speech failed", text: "Added" };
 
 export function ConversationPanel({ messages, onSpeak, disabled, shareContext, onShareContext, onBack }: {
   messages: ConversationMessage[];
@@ -55,34 +55,34 @@ export function ConversationPanel({ messages, onSpeak, disabled, shareContext, o
   return (
     <section className={styles.historyScreen} data-native-controls aria-labelledby="history-title">
       <header className={styles.historyHeader}>
-        <div><p className={styles.panelNote}>GLIM · AAC</p><h1 id="history-title" ref={headingRef} tabIndex={-1}>대화 기록 <span>{messages.length}</span></h1></div>
-        <button type="button" className={styles.navButton} onClick={onBack}>← 돌아가기</button>
+        <div><p className={styles.panelNote}>GLIM · AAC</p><h1 id="history-title" ref={headingRef} tabIndex={-1}>Conversation history <span>{messages.length}</span></h1></div>
+        <button type="button" className={styles.navButton} onClick={onBack}>← Back</button>
       </header>
-      <div className={styles.historyNavigation} aria-label="대화 기록 스크롤">
-        <button type="button" disabled={disabled || !messages.length} onClick={() => scrollLog("left")}>↑ 왼쪽 윙크</button>
-        <button type="button" disabled={disabled || !messages.length} onClick={() => scrollLog("right")}>오른쪽 윙크 ↓</button>
+      <div className={styles.historyNavigation} aria-label="Scroll conversation history">
+        <button type="button" disabled={disabled || !messages.length} onClick={() => scrollLog("left")}>↑ Left wink</button>
+        <button type="button" disabled={disabled || !messages.length} onClick={() => scrollLog("right")}>Right wink ↓</button>
       </div>
       <div className={styles.conversationBody}>
-        <p className={styles.panelNote}>최근 100개를 이 브라우저에 저장해요.</p>
-        <div className={`${styles.messageList} ${styles.historyMessages}`} ref={listRef} role="log" aria-label="현재 대화" aria-live="polite" aria-relevant="additions" tabIndex={0}>
-          {messages.length === 0 && <div className={styles.emptyConversation}>아직 나눈 말이 없어요.<br />내가 말한 문장과 상대방의 말을<br />여기에서 함께 볼 수 있어요.</div>}
+        <p className={styles.panelNote}>Your latest 100 messages are saved in this browser.</p>
+        <div className={`${styles.messageList} ${styles.historyMessages}`} ref={listRef} role="log" aria-label="Current conversation" aria-live="polite" aria-relevant="additions" tabIndex={0}>
+          {messages.length === 0 && <div className={styles.emptyConversation}>Your conversation starts here.<br />Messages you speak and replies from your conversation partner<br />will appear together.</div>}
           {messages.map(message => (
             <article key={message.id} className={styles.message} data-role={message.role}>
-              <div className={styles.messageMeta}><strong>{message.role === "self" ? "나" : "상대방"}</strong><time dateTime={new Date(message.createdAt).toISOString()}>{new Date(message.createdAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}</time></div>
+              <div className={styles.messageMeta}><strong>{message.role === "self" ? "You" : "Partner"}</strong><time dateTime={new Date(message.createdAt).toISOString()}>{new Date(message.createdAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</time></div>
               <p>{message.text}</p>
-              <div className={styles.messageActions}><span>{STATUS[message.status]}</span>{message.role === "self" && <button type="button" disabled={disabled} onClick={() => onSpeak(message.text)} aria-label={`${message.text} 다시 말하기`}>다시 말하기</button>}</div>
+              <div className={styles.messageActions}><span>{STATUS[message.status]}</span>{message.role === "self" && <button type="button" disabled={disabled} onClick={() => onSpeak(message.text)} aria-label={`Speak again: ${message.text}`}>Speak again</button>}</div>
             </article>
           ))}
         </div>
-        <details className={styles.historyOptions}><summary>상대방 입력 · 기록 관리</summary>
+        <details className={styles.historyOptions}><summary>Partner replies & history settings</summary>
         <form onSubmit={event => { event.preventDefault(); if (!partnerText.trim() || disabled) return; addMessage("partner", partnerText); setPartnerText(""); }} className={styles.partnerForm}>
-          <label htmlFor="partner-input">상대방의 말</label>
-          <textarea id="partner-input" value={partnerText} onChange={event => setPartnerText(event.target.value)} maxLength={500} rows={2} placeholder="상대방이 직접 적어주세요" disabled={disabled} />
-          <button type="submit" className={styles.navButton} disabled={disabled || !partnerText.trim()}>대화에 추가</button>
+          <label htmlFor="partner-input">Partner's reply</label>
+          <textarea id="partner-input" value={partnerText} onChange={event => setPartnerText(event.target.value)} maxLength={500} rows={2} placeholder="Your conversation partner can type here" disabled={disabled} />
+          <button type="submit" className={styles.navButton} disabled={disabled || !partnerText.trim()}>Add to conversation</button>
         </form>
-        <label className={styles.panelToggle}><input type="checkbox" checked={shareContext} onChange={event => onShareContext(event.target.checked)} />추천에 최근 대화 반영</label>
-        <p className={styles.panelNote}>{shareContext ? "추천을 요청할 때 최근 대화 6개를 Gemini에 함께 보내요." : "대화 기록은 추천 서비스에 보내지 않아요."}</p>
-        {confirmClear ? <div className={styles.clearActions}><span>이 브라우저의 기록을 비울까요?</span><button type="button" onClick={() => { clearConversation(); setConfirmClear(false); }}>기록 비우기</button><button type="button" onClick={() => setConfirmClear(false)}>취소</button></div> : <button type="button" className={styles.textButton} disabled={!messages.length} onClick={() => setConfirmClear(true)}>기록 비우기</button>}
+        <label className={styles.panelToggle}><input type="checkbox" checked={shareContext} onChange={event => onShareContext(event.target.checked)} />Use recent conversation for suggestions</label>
+        <p className={styles.panelNote}>{shareContext ? "Your latest six messages are sent to Gemini when you request suggestions." : "Your conversation history is not shared with the suggestion service."}</p>
+        {confirmClear ? <div className={styles.clearActions}><span>Clear conversation history in this browser?</span><button type="button" onClick={() => { clearConversation(); setConfirmClear(false); }}>Clear history</button><button type="button" onClick={() => setConfirmClear(false)}>Cancel</button></div> : <button type="button" className={styles.textButton} disabled={!messages.length} onClick={() => setConfirmClear(true)}>Clear history</button>}
         </details>
       </div>
     </section>

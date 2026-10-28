@@ -31,13 +31,14 @@ export function useSpeech() {
     if (!id) return;
     if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
       updateMessage(id, "failed");
-      setSpeechError("이 브라우저에서 음성을 사용할 수 없어요. 문장은 대화 기록에 남겨두었어요.");
+      setSpeechError("Speech isn't available in this browser. Your message has been saved in conversation history.");
       return;
     }
     const utterance = new SpeechSynthesisUtterance(trimmed);
-    const hangul = (trimmed.match(/[가-힣ㄱ-ㅎㅏ-ㅣ]/g) ?? []).length;
-    const english = (trimmed.match(/[A-Za-z]/g) ?? []).length;
-    utterance.lang = english > hangul ? "en-US" : "ko-KR";
+    utterance.lang = "en-US";
+    const englishVoice = window.speechSynthesis.getVoices().find(voice => voice.lang === "en-US")
+      ?? window.speechSynthesis.getVoices().find(voice => voice.lang.startsWith("en"));
+    if (englishVoice) utterance.voice = englishVoice;
     utterance.rate = 0.9;
     active.current = { id, utterance };
     utterance.onend = () => {
@@ -51,7 +52,7 @@ export function useSpeech() {
       active.current = null;
       updateMessage(id, "failed");
       setIsSpeaking(false);
-      setSpeechError("음성을 출력하지 못했어요. 기록에서 다시 말할 수 있어요.");
+      setSpeechError("We couldn't play your message. You can try again from conversation history.");
     };
     setSpeakingDurationMs(Math.min(4600, Math.max(2200, 1900 + trimmed.length * 55)));
     setSpeechAnimationKey(previous => previous + 1);
@@ -61,7 +62,7 @@ export function useSpeech() {
       active.current = null;
       updateMessage(id, "failed");
       setIsSpeaking(false);
-      setSpeechError("음성을 출력하지 못했어요. 기록에서 다시 말할 수 있어요.");
+      setSpeechError("We couldn't play your message. You can try again from conversation history.");
     }
   }, [cancel]);
   return { speak, stopSpeech, isSpeaking, speechError, speakingDurationMs, speechAnimationKey };

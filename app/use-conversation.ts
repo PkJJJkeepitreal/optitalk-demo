@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { MAX_MESSAGES, MAX_MESSAGE_LENGTH, sanitizeMessages, type ConversationMessage, type MessageStatus } from "./conversation-model";
 
-const KEY = "glim-conversation-v1";
+const KEY = "glim-en-conversation-v1";
 const EMPTY: ConversationMessage[] = [];
 let snapshot = EMPTY;
 let initialized = false;
