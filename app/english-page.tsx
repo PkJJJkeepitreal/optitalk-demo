@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import styles from "./interface.module.css";
-import { HomeButton, InterfaceIcon, RadialPad, type Direction, type DirectionMode, type RadialItem } from "./radial-pad";
+import { HomeButton, InterfaceIcon, RadialPad, type Direction, type DirectionMode, type DynamicOverlayConfig, type RadialItem } from "./radial-pad";
 import { GestureGuide, type Gesture } from "./gesture-guide";
 import { useWinkToolbar } from "./use-wink-toolbar";
 import { createBlinkSequence } from "./blink-sequence";
@@ -34,6 +34,7 @@ type Subgroup = keyof typeof SUBGROUPS;
 const INPUT_DIRECTIONS: Direction[] = ["nw", "n", "ne", "w"];
 const PHRASE_DIRECTIONS: Direction[] = ["nw", "n", "ne", "w", "e", "sw"];
 const FOUR_DIRECTIONS: Direction[] = ["n", "e", "s", "w"];
+const SUBGROUP_DIRECTIONS = ["n", "e", "s", "w"] as const;
 const PAGE_DIRECTIONS: Direction[] = ["n", "e", "w"];
 const DIRECTIONS: Record<Direction, string> = {
   nw: "Up left", n: "Up", ne: "Up right", w: "Left", e: "Right", sw: "Down left", s: "Down", se: "Down right",
@@ -245,7 +246,7 @@ export default function EnglishHome() {
         setGroup(name); setSubgroup(null); setStage(name === "Group 4" ? "subgroups" : "letters");
       }, { helper: name === "Group 4" ? "XQZ · BVKJ · FGYP" : GROUPS[name].join(" · ") }));
       radialItems.push(deleteItem, modeItem, utility("s", mode === "initials" ? "Home" : "Space", mode === "initials" ? goHome : () => append(" ", "literal")), suggestItem);
-    } else if (stage === "subgroups") {
+    } else if (stage === "subgroups" || (stage === "letters" && group === "Group 4")) {
       radialItems = (Object.keys(SUBGROUPS) as Subgroup[]).map((name, index) => item(INPUT_DIRECTIONS[index], name, () => { setSubgroup(name); setStage("letters"); }));
       radialItems.push(deleteItem, modeItem, utility("s", "Groups", resetLetterSelection), suggestItem);
     } else if (stage === "letters" && group) {
@@ -290,17 +291,30 @@ export default function EnglishHome() {
       displayedItems.push(item("s", currentPage + 1 === pages ? "First page" : "Next page", () => setPage(previous => (previous + 1) % pages), { helper: `${currentPage + 1} / ${pages}` }));
     }
   }
+  const expandedSubgroup = screen === "compose" && stage === "letters" && group === "Group 4" && subgroup && !quickRepliesOpen && !utilityOpen ? subgroup : null;
+  const subgroupAnchor = expandedSubgroup && displayedItems.find(entry => entry.label === expandedSubgroup)?.direction;
+  const dynamicOverlay: DynamicOverlayConfig | null = expandedSubgroup && subgroupAnchor ? {
+    anchorDirection: subgroupAnchor,
+    title: SUBGROUPS[expandedSubgroup].join(""),
+    options: SUBGROUPS[expandedSubgroup].map((letter, index) => ({
+      direction: SUBGROUP_DIRECTIONS[index], label: letter, action: () => append(letter),
+    })),
+    onDismiss: () => { setSubgroup(null); setStage("subgroups"); clearDirection(); },
+  } : null;
+  const interactionItems: RadialItem[] = dynamicOverlay
+    ? dynamicOverlay.options.map(option => item(option.direction, option.label, option.action))
+    : displayedItems;
   const dwellDirection = screen === "home" ? homeHoverDirection ?? activeDirection : activeDirection;
   const homeDwellEnabled = screen === "home" && (dwellDirection === "w" || dwellDirection === "e");
   const dwellEnabled = !toolbar.selectedLabel && (homeDwellEnabled || quickRepliesOpen || screen === "categories" || screen === "phrases" || (screen === "compose" && mode === "initials"));
-  const context = [screen, mode, stage, group, subgroup, utilityOpen, page, quickRepliesOpen, displayedItems.map(entry => entry.label).join("|")].join("/");
+  const context = [screen, mode, stage, group, subgroup, utilityOpen, page, quickRepliesOpen, interactionItems.map(entry => entry.label).join("|")].join("/");
   const keyboard = useRef({
-    screen, directionMode, isResting, items: displayedItems, activeDirection, toolbar,
+    screen, directionMode, isResting, items: interactionItems, activeDirection, toolbar,
     onGesture: (_gesture: ActionGesture) => {}, onRest: () => {}, onManualBlink: (_long: boolean) => {},
   });
   useEffect(() => {
     keyboard.current = {
-      screen, directionMode, isResting, items: displayedItems, activeDirection, toolbar,
+      screen, directionMode, isResting, items: interactionItems, activeDirection, toolbar,
       onRest: () => setIsResting(previous => !previous),
       onManualBlink: long => { flashGesture(long ? "long" : "blink"); },
       onGesture: gesture => {
@@ -323,6 +337,7 @@ export default function EnglishHome() {
         if (screen === "conversation") { closeHistory(); return; }
         if (editingSentence !== null) { setEditingSentence(null); return; }
         if (quickRepliesOpen) { setQuickRepliesOpen(false); return; }
+        if (dynamicOverlay) { dynamicOverlay.onDismiss(); return; }
         setUtilityOpen(false); setPage(0); setSelectedSentence("");
       },
     };
@@ -393,7 +408,7 @@ export default function EnglishHome() {
   }, [screen, mode, stage, directionMode, quickRepliesOpen, toolbar.clear]);
   useEffect(() => {
     if (!dwellEnabled || !dwellDirection || isResting || isBlinkPressed) return;
-    const target = displayedItems.find(entry => entry.direction === dwellDirection);
+    const target = interactionItems.find(entry => entry.direction === dwellDirection);
     if (!target) return;
     const timer = setTimeout(() => {
       if (keyboard.current.isResting) return;
@@ -464,7 +479,7 @@ export default function EnglishHome() {
     {showTyping && (currentInput || selectedSentence) && <p className={styles.typingIndicator} role="status">I'm writing a message. Please give me a moment.</p>}
     {speechError && <p className={styles.speechError} role="alert">{speechError}</p>}
     {editingSentence !== null && <form className={styles.sentenceEditor} data-native-controls onSubmit={event => { event.preventDefault(); if (editingSentence.trim() && !isResting) { setSelectedSentence(editingSentence.trim()); setEditingSentence(null); } }}><label htmlFor="message-edit">Your message</label><textarea id="message-edit" value={editingSentence} onChange={event => setEditingSentence(event.target.value)} rows={3} maxLength={500} disabled={isResting} /><div className={styles.conversationTools}><button type="submit" disabled={isResting || !editingSentence.trim()}>Save changes</button><button type="button" onClick={() => setEditingSentence(null)}>Cancel</button></div></form>}
-    <RadialPad items={displayedItems} activeDirection={activeDirection} isResting={isResting} isBlinkPressed={isBlinkPressed}
+    <RadialPad items={displayedItems} dynamicOverlay={dynamicOverlay} activeDirection={activeDirection} isResting={isResting} isBlinkPressed={isBlinkPressed}
       centerText={centerText} centerTitle={quickRepliesOpen ? "Quick replies" : fourWay && utilityOpen ? "Actions" : "Your message"}
       centerHelper={fourWay && utilities.length && !quickRepliesOpen ? `Raise eyebrows: ${utilityOpen ? "back to input" : "show actions"}` : screen === "compose" && mode === "initials" ? "Each letter stands for the first letter of a word." : undefined}
       isSpeaking={isSpeaking} speakingDurationMs={speakingDurationMs} speechAnimationKey={speechAnimationKey}

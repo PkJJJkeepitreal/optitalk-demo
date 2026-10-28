@@ -69,7 +69,7 @@
 .centerHint { margin-top: 18px; font-size: 12px; color: #617b69; }
 .workspace { max-width: 1440px; margin: 0 auto; }
 .initialWheel { pointer-events: none; position: absolute; z-index: 50; width: min(360px, calc(100% - 20px)); aspect-ratio: 1; left: 50%; top: 50%; transform: translate(-50%, -50%); filter: drop-shadow(0 12px 20px #203a3830); }
-.initialWheelCenter { pointer-events: auto; position: absolute; z-index: 2; width: 30%; height: 30%; left: 35%; top: 35%; border-radius: 50%; background: #286d5e; color: white; border: 3px solid #f4faf5; font-size: clamp(22px, 4vw, 32px); font-weight: 750; }
+.initialWheelCenter { pointer-events: auto; position: absolute; z-index: 2; width: 30%; height: 30%; left: 35%; top: 35%; border-radius: 50%; background: #286d5e; color: white; border: 3px solid #f4faf5; font-size: clamp(16px, 2.4vw, 24px); font-weight: 750; }
 .initialSector { pointer-events: auto; position: absolute; inset: 0; width: 100%; height: 100%; background: #f9fdf8; color: #203a38; clip-path: url(#initial-sector); transform: rotate(var(--turn, 0deg)); touch-action: manipulation; user-select: none; }
 .initialSector[data-direction="e"] { --turn: 90deg; }
 .initialSector[data-direction="s"] { --turn: 180deg; }

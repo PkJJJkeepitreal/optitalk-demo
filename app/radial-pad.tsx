@@ -16,7 +16,7 @@ export type RadialItem = {
 };
 type DynamicOverlayDirection = "n" | "e" | "s" | "w";
 type DynamicOverlayOption = { direction: DynamicOverlayDirection; label: string; helper?: string; action: () => void; longAction?: () => void };
-type DynamicOverlayConfig = { anchorDirection: Direction; title: string; options: DynamicOverlayOption[]; onDismiss: () => void };
+export type DynamicOverlayConfig = { anchorDirection: Direction; title: string; options: DynamicOverlayOption[]; onDismiss: () => void };
 
 export function InterfaceIcon({ name, className }: { name: "spark" | "grid" | "write" | "arrow" | "settings" | "guide" | "pause" | "sound" | "home"; className?: string }) {
   const paths = {
