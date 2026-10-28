@@ -308,7 +308,7 @@ export default function EnglishHome() {
     : displayedItems;
   const dwellDirection = screen === "home" ? homeHoverDirection ?? activeDirection : activeDirection;
   const homeDwellEnabled = screen === "home" && (dwellDirection === "w" || dwellDirection === "e");
-  const dwellEnabled = !toolbar.selectedLabel && (homeDwellEnabled || quickRepliesOpen || screen === "categories" || screen === "phrases" || (screen === "compose" && mode === "initials"));
+  const dwellEnabled = !toolbar.selectedLabel && (homeDwellEnabled || quickRepliesOpen || screen === "categories" || screen === "phrases" || screen === "compose");
   const context = [screen, mode, stage, group, subgroup, utilityOpen, page, quickRepliesOpen, interactionItems.map(entry => entry.label).join("|")].join("/");
   const keyboard = useRef({
     screen, directionMode, isResting, items: interactionItems, activeDirection, toolbar,
