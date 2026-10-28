@@ -17,7 +17,7 @@ function FaceIcon({ gesture }: { gesture: Gesture }) {
 }
 
 const gestures: { gesture: Gesture; label: string; key: string; description: string }[] = [
-  { gesture: "blink", label: "Blink", key: "Space", description: "Look toward an option, then blink once to select it.\n\nFor diagonal directions, press the two arrow keys in sequence. Hold your gaze for 1.5 seconds to select initials, categories or quick replies." },
+  { gesture: "blink", label: "Blink", key: "Space", description: "Look toward an option, then blink once to select it.\n\nFor diagonal directions, press the two arrow keys in sequence. Hold your gaze for 1.5 seconds to select Categories or Free input on Home, initials, categories or quick replies." },
   { gesture: "long", label: "Long blink", key: "Hold Space · 1.5 s", description: "Face forward and hold to turn rest mode on or off.\n\nHold while looking at Delete to clear your draft, or a phrase to speak it." },
   { gesture: "double", label: "Double blink", key: "Space twice", description: "Blink twice within 0.35 seconds to speak your message.\n\nIf a toolbar button is highlighted, select that button instead." },
   { gesture: "converge", label: "Converge", key: "G", description: "Turn both eyes inward to speak the message you selected or spelled." },

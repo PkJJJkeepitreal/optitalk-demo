@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import styles from "./interface.module.css";
 import { HomeButton, InterfaceIcon, RadialPad, type Direction, type DirectionMode, type RadialItem } from "./radial-pad";
 import { GestureGuide, type Gesture } from "./gesture-guide";
@@ -93,6 +93,7 @@ export default function EnglishHome() {
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [isResting, setIsResting] = useState(false);
   const [activeDirection, setActiveDirection] = useState<Direction | null>(null);
+  const [homeHoverDirection, setHomeHoverDirection] = useState<"w" | "e" | null>(null);
   const [isBlinkPressed, setIsBlinkPressed] = useState(false);
   const [manualGesture, setManualGesture] = useState<Gesture | null>(null);
   const [manualMessage, setManualMessage] = useState("Choose a direction, then blink to select.");
@@ -289,7 +290,9 @@ export default function EnglishHome() {
       displayedItems.push(item("s", currentPage + 1 === pages ? "First page" : "Next page", () => setPage(previous => (previous + 1) % pages), { helper: `${currentPage + 1} / ${pages}` }));
     }
   }
-  const dwellEnabled = !toolbar.selectedLabel && (quickRepliesOpen || screen === "categories" || screen === "phrases" || (screen === "compose" && mode === "initials"));
+  const dwellDirection = screen === "home" ? homeHoverDirection ?? activeDirection : activeDirection;
+  const homeDwellEnabled = screen === "home" && (dwellDirection === "w" || dwellDirection === "e");
+  const dwellEnabled = !toolbar.selectedLabel && (homeDwellEnabled || quickRepliesOpen || screen === "categories" || screen === "phrases" || (screen === "compose" && mode === "initials"));
   const context = [screen, mode, stage, group, subgroup, utilityOpen, page, quickRepliesOpen, displayedItems.map(entry => entry.label).join("|")].join("/");
   const keyboard = useRef({
     screen, directionMode, isResting, items: displayedItems, activeDirection, toolbar,
@@ -338,6 +341,7 @@ export default function EnglishHome() {
     const nativeSpace = (event: KeyboardEvent) => event.code === "Space" && !keyboard.current.toolbar.hasSelection() && !keys.length && event.target instanceof HTMLElement && Boolean(event.target.closest("[data-native-controls]"));
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.isComposing || event.ctrlKey || event.altKey || event.metaKey || editable(event.target)) return;
+      setHomeHoverDirection(null);
       const state = keyboard.current;
       const gesture: ActionGesture | null = event.code === "KeyC" ? "left" : event.code === "KeyM" ? "right" : event.code === "KeyG" ? "converge" : event.code === "KeyR" ? "brows" : event.key === "Enter" ? "frown" : null;
       if (gesture) {
@@ -378,7 +382,7 @@ export default function EnglishHome() {
       };
       if (long) { sequence.cancel(); perform(); } else sequence.tap(perform);
     };
-    const onBlur = () => { sequence.cancel(); clearTimeout(restTimer); clearTimeout(longTimer); blinkStarted = null; blinkTarget = undefined; setIsBlinkPressed(false); resetGaze(); };
+    const onBlur = () => { sequence.cancel(); clearTimeout(restTimer); clearTimeout(longTimer); blinkStarted = null; blinkTarget = undefined; setIsBlinkPressed(false); setHomeHoverDirection(null); resetGaze(); };
     const onContext = () => { onBlur(); };
     window.addEventListener("keydown", onKeyDown); window.addEventListener("keyup", onKeyUp); window.addEventListener("blur", onBlur); window.addEventListener("glim:context-change", onContext);
     return () => { onBlur(); window.removeEventListener("keydown", onKeyDown); window.removeEventListener("keyup", onKeyUp); window.removeEventListener("blur", onBlur); window.removeEventListener("glim:context-change", onContext); };
@@ -388,15 +392,22 @@ export default function EnglishHome() {
     setUtilityOpen(false); setPage(0); toolbar.clear();
   }, [screen, mode, stage, directionMode, quickRepliesOpen, toolbar.clear]);
   useEffect(() => {
-    if (!dwellEnabled || !activeDirection || isResting || isBlinkPressed) return;
-    const target = displayedItems.find(entry => entry.direction === activeDirection);
+    if (!dwellEnabled || !dwellDirection || isResting || isBlinkPressed) return;
+    const target = displayedItems.find(entry => entry.direction === dwellDirection);
     if (!target) return;
     const timer = setTimeout(() => {
       if (keyboard.current.isResting) return;
       target.action(); clearDirection(); window.dispatchEvent(new Event("glim:context-change"));
     }, 1500);
     return () => clearTimeout(timer);
-  }, [activeDirection, isResting, isBlinkPressed, dwellEnabled, context]);
+  }, [dwellDirection, isResting, isBlinkPressed, dwellEnabled, context]);
+
+  const startHomeDwell = (event: ReactPointerEvent<HTMLButtonElement>, direction: "w" | "e") => {
+    if (event.pointerType !== "touch" && !isResting) setHomeHoverDirection(direction);
+  };
+  const homeDwellProgress = (direction: "w" | "e") => homeDwellEnabled && dwellEnabled && dwellDirection === direction && !isResting && !isBlinkPressed
+    ? <span className={styles.homeDwellProgress} aria-hidden="true"><span key={direction} style={{ animation: "glimDwellProgress 1500ms linear forwards" }} /></span>
+    : null;
 
   const status = <div className={styles.status}>
     <span className={styles.statusReady}><span className={styles.statusDot} />{isResting ? "Resting" : isSpeaking ? "Speaking" : "Ready to talk"}</span>
@@ -411,8 +422,12 @@ export default function EnglishHome() {
     </header>
     <div className={styles.intro}><h1>What would you like to say?</h1></div>{status}
     <section className={styles.homeCards} aria-label="Start a conversation">
-      <button className={styles.homeCard} disabled={isResting} onClick={() => setScreen("categories")} data-active={activeDirection === "w"}><span className={styles.cardIcon}><InterfaceIcon name="grid" /></span><h2>Categories</h2><InterfaceIcon name="arrow" className={styles.cardArrow} /></button>
-      <button className={`${styles.homeCard} ${styles.inputCard}`} disabled={isResting} onClick={openCompose} data-active={activeDirection === "e"}><span className={styles.cardIcon}><InterfaceIcon name="write" /></span><h2>Free input</h2><InterfaceIcon name="arrow" className={styles.cardArrow} /></button>
+      <button className={styles.homeCard} disabled={isResting} onClick={() => setScreen("categories")}
+        onPointerEnter={event => startHomeDwell(event, "w")} onPointerLeave={() => setHomeHoverDirection(null)} onPointerDown={() => setHomeHoverDirection(null)} onPointerCancel={() => setHomeHoverDirection(null)}
+        data-active={activeDirection === "w" || homeHoverDirection === "w"}><span className={styles.cardIcon}><InterfaceIcon name="grid" /></span><h2>Categories</h2><InterfaceIcon name="arrow" className={styles.cardArrow} />{homeDwellProgress("w")}</button>
+      <button className={`${styles.homeCard} ${styles.inputCard}`} disabled={isResting} onClick={openCompose}
+        onPointerEnter={event => startHomeDwell(event, "e")} onPointerLeave={() => setHomeHoverDirection(null)} onPointerDown={() => setHomeHoverDirection(null)} onPointerCancel={() => setHomeHoverDirection(null)}
+        data-active={activeDirection === "e" || homeHoverDirection === "e"}><span className={styles.cardIcon}><InterfaceIcon name="write" /></span><h2>Free input</h2><InterfaceIcon name="arrow" className={styles.cardArrow} />{homeDwellProgress("e")}</button>
     </section>
     <section className={styles.emergency} aria-label="Urgent needs"><h2 className={styles.sectionTitle}><InterfaceIcon name="sound" />Urgent needs</h2><div className={styles.emergencyGrid}>{URGENT_PHRASES.map((phrase, index) => <button key={phrase} className={styles.emergencyButton} disabled={isResting} data-active={activeDirection === (["sw", "s", "se"] as Direction[])[index]} onClick={() => speak(phrase)}>{phrase}<InterfaceIcon name="sound" /></button>)}</div></section>
     {speechError && <p className={styles.speechError} role="alert">{speechError}</p>}
