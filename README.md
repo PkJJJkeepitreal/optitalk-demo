@@ -24,7 +24,9 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 Choose **Free input** to start with **English word initials**. Each letter represents one word: `IWW` can expand to “I want water.” Choose **Suggest** to generate English sentences.
 
-The lower-left **English full input** button switches to spelling. Both modes use the same letter groups. Switching modes preserves the draft and whether each segment contains initials or fully spelled text. In 4-direction mode, raise your eyebrows (`R`) to access the actions layer, including the input-mode switch. Full input includes spaces and punctuation through **Space / symbols**.
+The lower-left **English full input** button switches to spelling. Both modes use the same letter groups and keep the letter selection open after each character. Switching modes preserves the draft and whether each segment contains initials or fully spelled text. Fully spelled words are underlined; word initials are not. Mode controls use a light blue color to distinguish them from letter and action buttons.
+
+In 4-direction mode, raise your eyebrows (`R`) to access the actions layer, including the input-mode switch. Full input has a direct **Space** action and toolbar shortcuts for **Space** and **Symbols**. If suggestions are unavailable, clearly labeled common English phrases remain available.
 
 The UI, built-in phrases, speech output, suggestion prompts, and error messages use English. This version has its own browser storage for preferences and conversation history; previous versions' history remains in their original storage.
 

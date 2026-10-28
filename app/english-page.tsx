@@ -51,6 +51,10 @@ const CATEGORIES: Category[] = [
   { title: "Conversation", icon: "💬", phrases: ["How are you?", "I'd like to tell you something.", "Please give me a moment.", "I'd like to ask a question.", "It's good to see you.", "Thank you for listening."] },
 ];
 const QUICK_REPLIES = ["Yes.", "No.", "One moment, please."];
+const COMMON_PHRASES = [
+  "I'd like some water, please.", "I need help.", "Please stay here.",
+  "I feel uncomfortable.", "Could you help me?", "Thank you for helping me.",
+];
 const GESTURE_NAMES: Record<ActionGesture, string> = {
   double: "Double blink", converge: "Converge", left: "Left wink", right: "Right wink", frown: "Strong frown", brows: "Eyebrow raise",
 };
@@ -65,6 +69,18 @@ function directionFrom(keys: string[]): Direction | null {
   if (down && left) return "sw";
   if (down && right) return "se";
   return up ? "n" : down ? "s" : left ? "w" : right ? "e" : null;
+}
+
+function renderInputSegments(segments: Segment[]) {
+  return segments.map((segment, index) => (
+    <span key={`${segment.type}-${index}`}>
+      {segment.type === "literal"
+        ? segment.text.split(/([A-Za-z][A-Za-z0-9'’.-]*)/g).map((part, partIndex) => (
+          <span key={partIndex} className={/^[A-Za-z][A-Za-z0-9'’.-]*$/.test(part) ? styles.spelledInput : undefined}>{part}</span>
+        ))
+        : segment.text}
+    </span>
+  ));
 }
 
 export default function EnglishHome() {
@@ -169,7 +185,7 @@ export default function EnglishHome() {
   const closeHistory = () => { clearDirection(); setScreen(returnScreen.current); };
   const speakDraft = () => {
     if (screen === "compose" || screen === "phrases") {
-      speak(selectedSentence || (mode === "spelling" && screen === "compose" && segments.every(segment => segment.type === "literal") ? currentInput : ""));
+      speak(selectedSentence || (mode === "spelling" && screen === "compose" ? currentInput : ""));
     }
   };
   const loadRecommendations = async () => {
@@ -191,7 +207,8 @@ export default function EnglishHome() {
       setSuggestions(result.suggestions);
     } catch (error) {
       if (controller.signal.aborted || requestRef.current !== controller) return;
-      setRecommendationError(error instanceof Error ? error.message : "We couldn't generate suggestions. Please try again.");
+      setSuggestions(COMMON_PHRASES);
+      setRecommendationError(`${error instanceof Error ? error.message : "We couldn't generate suggestions. Please try again."} Common phrases are shown below.`);
     } finally {
       if (requestRef.current === controller) { requestRef.current = null; setLoading(false); }
     }
@@ -220,31 +237,31 @@ export default function EnglishHome() {
   ];
   if (screen === "compose") {
     const deleteItem = utility("e", "Delete", deleteCharacter, { longAction: clearDraft });
-    const modeItem = utility("sw", mode === "initials" ? "English full input" : "English initials", switchMode);
+    const modeItem = utility("sw", mode === "initials" ? "English full input" : "English initials", switchMode, { tone: "mode" });
     const suggestItem = utility("se", "Suggest", () => void loadRecommendations(), { tone: "primary" });
     if (stage === "groups") {
       radialItems = (Object.keys(GROUPS) as Group[]).map((name, index) => item(INPUT_DIRECTIONS[index], name, () => {
         setGroup(name); setSubgroup(null); setStage(name === "Group 4" ? "subgroups" : "letters");
       }, { helper: name === "Group 4" ? "XQZ · BVKJ · FGYP" : GROUPS[name].join(" · ") }));
-      radialItems.push(deleteItem, modeItem, utility("s", mode === "initials" ? "Home" : "Space / symbols", mode === "initials" ? goHome : () => setStage("symbols")), suggestItem);
+      radialItems.push(deleteItem, modeItem, utility("s", mode === "initials" ? "Home" : "Space", mode === "initials" ? goHome : () => append(" ", "literal")), suggestItem);
     } else if (stage === "subgroups") {
       radialItems = (Object.keys(SUBGROUPS) as Subgroup[]).map((name, index) => item(INPUT_DIRECTIONS[index], name, () => { setSubgroup(name); setStage("letters"); }));
       radialItems.push(deleteItem, modeItem, utility("s", "Groups", resetLetterSelection), suggestItem);
     } else if (stage === "letters" && group) {
       const letters = subgroup ? SUBGROUPS[subgroup] : GROUPS[group];
-      radialItems = letters.map((letter, index) => item(index < 4 ? INPUT_DIRECTIONS[index] : "se", letter, () => { append(letter); resetLetterSelection(); }));
+      radialItems = letters.map((letter, index) => item(index < 4 ? INPUT_DIRECTIONS[index] : "se", letter, () => append(letter), { helper: subgroup || group }));
       radialItems.push(deleteItem, modeItem, utility("s", "Groups", () => {
         if (subgroup) { setSubgroup(null); setStage("subgroups"); } else resetLetterSelection();
       }));
       if (letters.length < 5) radialItems.push(suggestItem);
     } else if (stage === "symbols") {
-      radialItems = [item("nw", "Space", () => { append(" ", "literal"); resetLetterSelection(); }),
+      radialItems = [item("nw", "Space", () => append(" ", "literal")),
         item("n", ".", () => append(".", "literal")), item("ne", ",", () => append(",", "literal")),
         item("w", "?", () => append("?", "literal")), item("e", "'", () => append("'", "literal")),
         item("sw", "!", () => append("!", "literal")), utility("s", "Groups", resetLetterSelection),
         utility("se", "Speak", speakDraft, { tone: "primary" })];
     } else if (stage === "suggestions") {
-      radialItems = [...phraseItems(suggestions), utility("s", mode === "initials" ? "English initials" : "English full input", () => { setSelectedSentence(""); resetLetterSelection(); }),
+      radialItems = [...phraseItems(suggestions), utility("s", mode === "initials" ? "English initials" : "English full input", () => { invalidateSuggestions(); resetLetterSelection(); }, { tone: "mode" }),
         utility("se", selectedSentence ? "Speak" : loading ? "Thinking…" : "New suggestions", selectedSentence ? speakDraft : () => void loadRecommendations(), { tone: "primary" })];
     }
   }
@@ -408,14 +425,18 @@ export default function EnglishHome() {
     <GestureGuide activeGesture={manualGesture} />{footer}
   </div></main>;
   const title = screen === "categories" ? "Categories" : screen === "phrases" ? category.title : mode === "initials" ? "English word initials" : "English full input";
-  const canSpeak = Boolean(selectedSentence || (screen === "compose" && mode === "spelling" && currentInput && segments.every(segment => segment.type === "literal")));
-  const centerText = quickRepliesOpen ? "A quick reply, then back to your message." : selectedSentence || (loading ? "Thinking of suggestions…" : recommendationError) || (screen === "compose" ? currentInput || (mode === "initials" ? "What would you like to say?" : "Spell your message.") : screen === "categories" ? "Choose a category." : "Choose a phrase.");
+  const canSpeak = Boolean(selectedSentence || (screen === "compose" && mode === "spelling" && currentInput));
+  const centerText = quickRepliesOpen ? "A quick reply, then back to your message." : selectedSentence || (loading ? "Thinking of suggestions…" : recommendationError) || (screen === "compose" ? (currentInput ? renderInputSegments(segments) : mode === "initials" ? "What would you like to say?" : "Spell your message.") : screen === "categories" ? "Choose a category." : "Choose a phrase.");
   return <main className={styles.shell}><div className={styles.workspace}>
     <header className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><p className="text-sm font-semibold text-teal-600">GLIM · AAC</p><h1 className="mt-1 text-3xl font-bold">{title}</h1></div><HomeButton onClick={goHome} /></header>{status}
     <div ref={toolbar.ref} className={styles.conversationTools} role="toolbar" aria-label="Conversation tools" data-native-controls>
       <button disabled={isResting} onClick={openHistory}>History</button><button disabled={isResting} data-active={quickRepliesOpen} onClick={() => setQuickRepliesOpen(previous => !previous)}>{quickRepliesOpen ? "Keep writing" : "Quick replies"}</button>
       <button disabled={isResting || !canSpeak} onClick={() => setEditingSentence(selectedSentence || currentInput)}>Edit message</button><button className={styles.speakButton} disabled={isResting || !canSpeak} onClick={speakDraft}>Speak</button>
       {screen === "compose" && <button disabled={isResting || loading || !currentInput.trim()} onClick={() => { setQuickRepliesOpen(false); void loadRecommendations(); }}>{loading ? "Thinking…" : "New suggestions"}</button>}
+      {screen === "compose" && mode === "spelling" && <>
+        <button disabled={isResting || quickRepliesOpen} onClick={() => { append(" ", "literal"); if (stage === "suggestions") resetLetterSelection(); }}>Space</button>
+        <button disabled={isResting || quickRepliesOpen} onClick={() => setStage("symbols")}>Symbols</button>
+      </>}
       {isSpeaking && <button onClick={stopSpeech}>Stop speaking</button>}<button aria-pressed={showTyping} data-active={showTyping} onClick={() => setShowTyping(previous => !previous)}>Typing indicator</button>
     </div>
     <span className="sr-only" role="status">{toolbar.selectedLabel ? `${toolbar.selectedLabel} highlighted. Press Space to select.` : ""}</span>

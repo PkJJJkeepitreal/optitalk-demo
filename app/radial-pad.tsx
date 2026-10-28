@@ -11,7 +11,7 @@ export type RadialItem = {
   helper?: string;
   action: () => void;
   longAction?: () => void;
-  tone?: "normal" | "primary" | "danger";
+  tone?: "normal" | "primary" | "danger" | "mode";
   utility?: boolean;
 };
 type DynamicOverlayDirection = "n" | "e" | "s" | "w";
