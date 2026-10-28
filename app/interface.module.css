@@ -49,6 +49,10 @@
 .slot[data-tone="mode"] { background: #e9f0fa; border-color: #b8cce5; color: #315d86; }
 .slot[data-tone="mode"]:hover:not(:disabled), .slot[data-tone="mode"][data-active="true"] { background: #315d86; border-color: #214565; color: #fff; box-shadow: inset 0 0 0 2px #214565, 0 4px 12px #254e7618; }
 .slot[data-tone="mode"][data-confirming="true"] { background: #214565; border-color: #17354e; color: #fff; }
+.slot[data-tone="delete"] { background: #fbeaf0; border-color: #e4bdcc; color: #8a405b; }
+.slot[data-tone="delete"]:hover:not(:disabled), .slot[data-tone="delete"][data-active="true"] { background: #974561; border-color: #753049; color: #fff; box-shadow: inset 0 0 0 2px #753049, 0 4px 12px #75304918; }
+.slot[data-tone="delete"][data-confirming="true"] { background: #753049; border-color: #60263b; color: #fff; }
+.slot[data-tone="delete"][data-clear="true"] { background: #a24739; border-color: #813428; color: #fff; }
 .spelledInput { text-decoration-line: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
 .slotLabel { font-size: clamp(16px, 2vw, 22px); font-weight: 700; line-height: 1.45; word-break: keep-all; overflow-wrap: anywhere; }
 .slotHelper { margin-top: 8px; color: #60766b; font-size: clamp(11px, 1.3vw, 14px); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
