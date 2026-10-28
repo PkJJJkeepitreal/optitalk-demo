@@ -293,13 +293,15 @@ export default function EnglishHome() {
   }
   const expandedSubgroup = screen === "compose" && stage === "letters" && group === "Group 4" && subgroup && !quickRepliesOpen && !utilityOpen ? subgroup : null;
   const subgroupAnchor = expandedSubgroup && displayedItems.find(entry => entry.label === expandedSubgroup)?.direction;
+  const closeExpandedSubgroup = () => { setSubgroup(null); setStage("subgroups"); clearDirection(); };
   const dynamicOverlay: DynamicOverlayConfig | null = expandedSubgroup && subgroupAnchor ? {
     anchorDirection: subgroupAnchor,
     title: SUBGROUPS[expandedSubgroup].join(""),
     options: SUBGROUPS[expandedSubgroup].map((letter, index) => ({
-      direction: SUBGROUP_DIRECTIONS[index], label: letter, action: () => append(letter),
+      direction: SUBGROUP_DIRECTIONS[index], label: letter,
+      action: () => { append(letter); closeExpandedSubgroup(); },
     })),
-    onDismiss: () => { setSubgroup(null); setStage("subgroups"); clearDirection(); },
+    onDismiss: closeExpandedSubgroup,
   } : null;
   const interactionItems: RadialItem[] = dynamicOverlay
     ? dynamicOverlay.options.map(option => item(option.direction, option.label, option.action))
